@@ -134,14 +134,15 @@ var sub=dark?'#94a3b8':'#64748b';
 var bor=dark?'#334155':'#e2e8f0';
 
 var esc=function(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');};
-var css='.p{font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;box-sizing:border-box;}'+
-'.btn{width:56px;height:56px;border-radius:9999px;border:none;cursor:pointer;box-shadow:0 10px 25px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:700;}'+
+var css='.p{font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;}'+
+'.p,.p *{box-sizing:border-box;}'+
+'.btn{height:44px;min-width:44px;max-width:min(240px,calc(100vw - 40px));padding:0 14px;border-radius:9999px;border:none;cursor:pointer;box-shadow:0 10px 25px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'+
 '.panel{position:absolute;bottom:72px;width:min(380px,calc(100vw - 40px));border-radius:16px;box-shadow:0 25px 50px rgba(0,0,0,.2);overflow:hidden;border:1px solid '+bor+';background:'+bg+';color:'+fg+';display:none;flex-direction:column;max-height:min(520px,80vh);}'+
 '.panel.open{display:flex;}'+
 (position==='bottom-left'?'.panel{left:0;}':'.panel{right:0;}')+
 '.hd{padding:14px 16px;border-bottom:1px solid '+bor+';display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:14px;}'+
 '.bd{padding:16px;flex:1;overflow:auto;}'+
-'.ta{width:100%;min-height:100px;padding:10px 12px;border-radius:10px;border:1px solid '+bor+';background:transparent;color:'+fg+';font-size:14px;resize:vertical;}'+
+'.ta{width:100%;max-width:100%;min-height:100px;padding:10px 12px;border-radius:10px;border:1px solid '+bor+';background:transparent;color:'+fg+';font-size:14px;resize:vertical;}'+
 '.ft{padding:12px 16px;border-top:1px solid '+bor+';display:flex;gap:8px;justify-content:flex-end;}'+
 '.b{padding:8px 16px;border-radius:10px;border:none;font-weight:600;cursor:pointer;font-size:13px;}'+
 '.b2{background:'+bor+';color:'+fg+';}'+
@@ -153,7 +154,7 @@ root.innerHTML='<style>'+css+'</style><div class="p" style="position:relative">'
 '<div class="bd"><p style="margin:0 0 10px;font-size:13px;color:'+sub+'">Describe what went wrong. Recent activity on this page is included.</p>'+
 '<textarea class="ta" id="wt" placeholder="What happened?" maxlength="8000"></textarea><div class="err" id="we" style="display:none"></div><div class="ok" id="wo" style="display:none"></div></div>'+
 '<div class="ft"><button type="button" class="b b2" id="wc">Cancel</button><button type="button" class="b" id="ws" style="background:'+accent+';color:#fff">Send</button></div></div>'+
-'<button type="button" class="btn" id="wf" style="background:'+accent+'" aria-label="'+esc(label)+'">W</button></div>';
+'<button type="button" class="btn" id="wf" style="background:'+accent+'" aria-label="'+esc(label)+'">'+esc(label||'W')+'</button></div>';
 
 var fab=root.getElementById('wf');
 var panel=root.getElementById('wp');

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,6 +24,16 @@ export default function RootLayout({
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className="min-h-screen bg-background text-foreground font-sans antialiased noise-overlay">
         {children}
+        <Script
+          src="http://localhost:3000/api/embed/sdk"
+          data-id="wsp_live_876d451c4f7b4acaa0ee4a6a"
+          data-accent="#06b6d4"
+          data-position="bottom-right"
+          data-label="Send Feedback"
+          data-network-failures-only="true"
+          data-session-seconds="30"
+          async
+        />
       </body>
     </html>
   );
