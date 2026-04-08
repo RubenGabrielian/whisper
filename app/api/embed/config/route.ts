@@ -47,7 +47,7 @@ export async function GET(request: Request) {
   const { data: row, error: qErr } = await supabase
     .from("projects")
     .select(
-      "status, widget_theme, accent_color, widget_position, widget_label, session_timeline_enabled, session_timeline_seconds, capture_device_metadata"
+      "status, widget_theme, accent_color, widget_position, widget_label, capture_console, capture_network_failures_only, capture_network, session_timeline_enabled, session_timeline_seconds, capture_device_metadata"
     )
     .eq("api_key", id)
     .maybeSingle();
@@ -89,6 +89,8 @@ export async function GET(request: Request) {
       accentColor: accent,
       position,
       widgetLabel,
+      captureConsole: row.capture_console ?? true,
+      captureNetworkFailuresOnly: row.capture_network_failures_only ?? row.capture_network ?? true,
       sessionTimelineEnabled: row.session_timeline_enabled ?? true,
       sessionTimelineSeconds,
       captureDeviceMetadata: row.capture_device_metadata ?? true,

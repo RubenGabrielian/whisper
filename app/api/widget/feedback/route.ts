@@ -35,6 +35,64 @@ function looksLikeEmail(s: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
 
+function looksLikeSlackWebhook(url: string): boolean {
+  const u = url.trim();
+  return /^https:\/\/hooks\.slack\.com\/services\/[^/\s]+\/[^/\s]+\/[^/\s]+$/i.test(u);
+}
+
+async function sendSlackWebhook(params: {
+  webhookUrl: string;
+  projectName: string;
+  message: string;
+  pageUrl: string;
+  consoleCount: number;
+  networkCount: number;
+}) {
+  const { webhookUrl, projectName, message, pageUrl, consoleCount, networkCount } = params;
+  const title = projectName ? `Whisper · ${projectName}` : "Whisper";
+
+  // Slack Incoming Webhooks accept either {text} or {blocks}. We'll use blocks but keep it minimal.
+  const payload = {
+    text: `${title}: ${message}`,
+    blocks: [
+      {
+        type: "header",
+        text: { type: "plain_text", text: title, emoji: false },
+      },
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: `*New feedback*\n>${message.replace(/\n/g, "\n>")}` },
+      },
+      {
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*Console*\n${consoleCount}` },
+          { type: "mrkdwn", text: `*Network*\n${networkCount}` },
+        ],
+      },
+      ...(pageUrl
+        ? [
+          {
+            type: "section",
+            text: { type: "mrkdwn", text: `*Page*\n${pageUrl}` },
+          },
+        ]
+        : []),
+    ],
+  };
+
+  const res = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`Slack webhook failed (${res.status}): ${txt.slice(0, 200)}`);
+  }
+}
+
 export async function POST(req: Request) {
   const apiKey =
     req.headers.get("x-whisper-key")?.trim() ||
@@ -79,7 +137,7 @@ export async function POST(req: Request) {
 
   const { data: project, error: qErr } = await supabase
     .from("projects")
-    .select("id, status, name, owner_email, alert_email")
+    .select("id, status, name, owner_email, alert_email, slack_webhook_url")
     .eq("api_key", resolvedKey)
     .maybeSingle();
 
@@ -119,6 +177,24 @@ export async function POST(req: Request) {
   const subject = widgetFeedbackEmailSubject(projectName, parsed.message);
 
   try {
+    // Slack is best-effort: don't fail the request if webhook fails.
+    const slackUrl =
+      typeof (project as { slack_webhook_url?: unknown }).slack_webhook_url === "string"
+        ? (project as { slack_webhook_url: string }).slack_webhook_url.trim()
+        : "";
+    if (slackUrl && looksLikeSlackWebhook(slackUrl)) {
+      sendSlackWebhook({
+        webhookUrl: slackUrl,
+        projectName,
+        message: parsed.message,
+        pageUrl: parsed.context.url,
+        consoleCount: parsed.console.length,
+        networkCount: parsed.network.length,
+      }).catch((e) => {
+        console.error("[widget/feedback] Slack webhook error:", e);
+      });
+    }
+
     const resend = new Resend(resendKey);
     const { data, error } = await resend.emails.send({
       from,

@@ -73,18 +73,128 @@ function boot(cfg){
   var accent=cfg.accentColor||'#06b6d4';
   var position=cfg.position||'bottom-right';
   var label=cfg.widgetLabel||'Send Feedback';
+  var captureConsole=cfg.captureConsole!==false;
+  var captureNetFailOnly=cfg.captureNetworkFailuresOnly!==false;
   var sessionOn=cfg.sessionTimelineEnabled!==false;
   var deviceMeta=cfg.captureDeviceMetadata!==false;
   var secAttr=cfg.sessionTimelineSeconds!=null?String(cfg.sessionTimelineSeconds):null;
   var windowMs=sessionOn?clampMs(secAttr):0;
 
   var events=[];
+  var cons=[];
+  var net=[];
   function prune(now){if(!windowMs)return;var cut=now-windowMs;events=events.filter(function(e){return e.timestamp>=cut;});}
+  function pruneCons(now){if(!windowMs)return;var cut=now-windowMs;cons=cons.filter(function(e){return e.timestamp>=cut;});}
+  function pruneNet(now){if(!windowMs)return;var cut=now-windowMs;net=net.filter(function(e){return e.timestamp>=cut;});}
   function push(ev){
     if(!windowMs)return;
     var now=Date.now();prune(now);
     events.push({id:uid(),timestamp:now,type:ev.type,description:ev.description});
   }
+  function pushCons(level,text){
+    if(!captureConsole)return;
+    var now=Date.now();if(windowMs)pruneCons(now);
+    cons.push({level:level,text:String(text||'').slice(0,900),timestamp:now});
+    if(cons.length>80)cons=cons.slice(cons.length-80);
+  }
+  function pushNet(row){
+    if(!captureNetFailOnly && !row)return;
+    var now=Date.now();if(windowMs)pruneNet(now);
+    net.push(row);
+    if(net.length>60)net=net.slice(net.length-60);
+  }
+
+  function safeStr(v){
+    if(v==null)return'';
+    if(typeof v==='string')return v;
+    try{return JSON.stringify(v);}catch(_){return String(v);}
+  }
+  function joinArgs(args){
+    try{return Array.prototype.map.call(args,function(a){return safeStr(a);}).join(' ');}
+    catch(_){return '';}
+  }
+
+  if(captureConsole){
+    var orig={log:console.log,warn:console.warn,error:console.error,info:console.info};
+    function wrap(level,key){
+      return function(){
+        try{pushCons(level,joinArgs(arguments));}catch(_){}
+        try{return orig[key].apply(console,arguments);}catch(_2){}
+      };
+    }
+    console.log=wrap('log','log');
+    console.warn=wrap('warn','warn');
+    console.error=wrap('error','error');
+    console.info=wrap('log','info');
+    window.addEventListener('error',function(e){
+      try{pushCons('error',(e&&e.message?e.message:'Uncaught error')+(e&&e.filename?(' @ '+e.filename+':'+e.lineno+':'+e.colno):''));}catch(_){}
+    });
+    window.addEventListener('unhandledrejection',function(e){
+      try{
+        var r=e&&e.reason;
+        var msg=(r&&r.message)?r.message:safeStr(r);
+        pushCons('error','Unhandled rejection: '+msg);
+      }catch(_){}
+    });
+  }
+
+  // Network capture (fetch + XHR). Records failures only when captureNetFailOnly=true.
+  (function(){
+    try{
+      if(typeof window.fetch==='function'){
+        var of=window.fetch;
+        window.fetch=function(input,init){
+          var started=Date.now();
+          var method=(init&&init.method)?String(init.method).toUpperCase():'GET';
+          var url='';
+          try{url=typeof input==='string'?input:(input&&input.url?input.url:String(input));}catch(_){url='';}
+          return of.apply(this,arguments).then(function(res){
+            var dur=Date.now()-started;
+            var ok=!!(res&&res.ok);
+            var st=res?res.status:null;
+            if(!captureNetFailOnly || !ok){
+              pushNet({method:method,url:url,status:st,durationMs:dur,ok:ok,timestamp:Date.now()});
+            }
+            return res;
+          }).catch(function(err){
+            var dur=Date.now()-started;
+            if(!captureNetFailOnly || true){
+              pushNet({method:method,url:url,status:null,durationMs:dur,ok:false,error:(err&&err.message)?err.message:String(err),timestamp:Date.now()});
+            }
+            throw err;
+          });
+        };
+      }
+    }catch(_){}
+    try{
+      var X=window.XMLHttpRequest;
+      if(X&&X.prototype){
+        var oOpen=X.prototype.open;
+        var oSend=X.prototype.send;
+        X.prototype.open=function(method,url){
+          try{this.__w_m=String(method||'GET').toUpperCase();this.__w_u=String(url||'');}catch(_){}
+          return oOpen.apply(this,arguments);
+        };
+        X.prototype.send=function(){
+          var xhr=this;
+          var started=Date.now();
+          function done(ok){
+            try{
+              var dur=Date.now()-started;
+              var st=Number.isFinite(xhr.status)?xhr.status:null;
+              if(!captureNetFailOnly || !ok){
+                pushNet({method:xhr.__w_m||'GET',url:xhr.__w_u||'',status:st,durationMs:dur,ok:ok,timestamp:Date.now()});
+              }
+            }catch(_){}
+          }
+          xhr.addEventListener('load',function(){done(xhr.status>=200&&xhr.status<400);});
+          xhr.addEventListener('error',function(){done(false);});
+          xhr.addEventListener('timeout',function(){done(false);});
+          return oSend.apply(this,arguments);
+        };
+      }
+    }catch(_){}
+  })();
 
   if(sessionOn&&windowMs){
     push({type:'navigation',description:'Page: '+(location.pathname||'/')});
@@ -182,7 +292,7 @@ function boot(cfg){
     fetch(W+'/api/widget/feedback',{
       method:'POST',
       headers:{'Content-Type':'application/json','X-Whisper-Key':apiKey},
-      body:JSON.stringify({message:msg,context:ctx,events:sessionOn?events:[],receiptAt:Date.now()})
+      body:JSON.stringify({message:msg,context:ctx,events:sessionOn?events:[],console:captureConsole?cons:[],network:net,receiptAt:Date.now()})
     }).then(function(r){
       return r.json().then(function(j){return{ok:r.ok,status:r.status,j:j};});
     }).then(function(x){

@@ -21,35 +21,19 @@ export type FeedbackContext = {
   url: string;
 };
 
-type LogLevel = "error" | "warn" | "log";
+export type LogLevel = "error" | "warn" | "log";
 
-/** Sample console lines (matches in-widget demo; replace with live data when you wire capture). */
-const SAMPLE_CONSOLE: { level: LogLevel; text: string }[] = [
-  { level: "warn", text: "Stripe.js not initialized — checkout may fail" },
-  { level: "error", text: "TypeError: Cannot read properties of undefined (reading 'id')" },
-  { level: "log", text: "Auth token refreshed (exp +3600s)" },
-];
+export type FeedbackConsoleEntry = { level: LogLevel; text: string; timestamp: number };
 
-/** Sample network rows (matches in-widget demo). */
-const SAMPLE_NETWORK: {
+export type FeedbackNetworkEntry = {
   method: string;
-  path: string;
-  status: number;
-  ms: string;
-  highlight?: boolean;
-  errorLabel?: string;
-}[] = [
-    { method: "POST", path: "/api/checkout/session", status: 422, ms: "1 240" },
-    { method: "GET", path: "/api/user/me", status: 200, ms: "81" },
-    {
-      method: "PUT",
-      path: "/api/cart",
-      status: 500,
-      ms: "2 910",
-      highlight: true,
-      errorLabel: "500 Internal Server Error",
-    },
-  ];
+  url: string;
+  status: number | null;
+  durationMs: number | null;
+  ok: boolean;
+  error?: string;
+  timestamp: number;
+};
 
 const LOG_COLORS: Record<LogLevel, { bg: string; text: string; border: string }> = {
   error: { bg: "#fef2f2", text: "#b91c1c", border: "#fecaca" },
@@ -115,6 +99,8 @@ export function buildFeedbackReportHtml(params: {
   message: string;
   context: FeedbackContext;
   events: FeedbackEvent[];
+  console: FeedbackConsoleEntry[];
+  network: FeedbackNetworkEntry[];
   receiptAt: number;
   /** Absolute base URL to a folder of PNGs, no trailing slash. Example: https://yoursite.com/email-icons */
   iconBaseUrl?: string | null;
@@ -172,38 +158,56 @@ export function buildFeedbackReportHtml(params: {
     )
     .join("");
 
-  const consoleRows = SAMPLE_CONSOLE.map((entry, i) => {
-    const c = LOG_COLORS[entry.level];
-    const borderTop = i > 0 ? "border-top:1px solid #e2e8f0;" : "";
-    return `<tr>
+  const consoleSorted = [...(params.console ?? [])].sort((a, b) => b.timestamp - a.timestamp);
+  const consoleRows =
+    consoleSorted.length === 0
+      ? `<tr><td style="padding:16px 14px;color:#64748b;font-size:13px;font-style:italic;">No console logs captured.</td></tr>`
+      : consoleSorted.map((entry, i) => {
+        const c = LOG_COLORS[entry.level];
+        const borderTop = i > 0 ? "border-top:1px solid #e2e8f0;" : "";
+        return `<tr>
   <td style="padding:10px 14px;${borderTop}">
     <span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:0.06em;padding:3px 8px;border-radius:6px;border:1px solid ${c.border};background:${c.bg};color:${c.text};">${entry.level}</span>
     <span style="font-size:13px;color:#334155;margin-left:10px;line-height:1.5;">${escapeHtml(entry.text)}</span>
   </td>
 </tr>`;
-  }).join("");
+      }).join("");
 
-  const networkRows = SAMPLE_NETWORK.map((req, i) => {
-    const borderTop = i > 0 ? "border-top:1px solid #e2e8f0;" : "";
-    const hl = req.highlight ? "background:#fef2f2;" : "";
-    const methodColor =
-      req.method === "GET" ? "#0369a1" : req.method === "POST" ? "#047857" : "#b45309";
-    const errBlock =
-      req.highlight && req.errorLabel
-        ? `<div style="padding:6px 0 2px 52px;font-size:12px;color:#b91c1c;">
-             ${escapeHtml(req.errorLabel)} <span style="color:#64748b;">— likely failure</span>
+  function netPath(u: string): string {
+    try {
+      const url = new URL(u);
+      return `${url.pathname}${url.search}${url.hash}`;
+    } catch {
+      return u;
+    }
+  }
+
+  const networkSorted = [...(params.network ?? [])].sort((a, b) => b.timestamp - a.timestamp);
+  const networkRows =
+    networkSorted.length === 0
+      ? `<tr><td style="padding:16px 14px;color:#64748b;font-size:13px;font-style:italic;">No network requests captured.</td></tr>`
+      : networkSorted.map((req, i) => {
+        const borderTop = i > 0 ? "border-top:1px solid #e2e8f0;" : "";
+        const status = req.status ?? 0;
+        const hl = !req.ok ? "background:#fef2f2;" : "";
+        const methodColor =
+          req.method === "GET" ? "#0369a1" : req.method === "POST" ? "#047857" : "#b45309";
+        const errBlock =
+          !req.ok && req.error
+            ? `<div style="padding:6px 0 2px 52px;font-size:12px;color:#b91c1c;">
+             ${escapeHtml(req.error)} <span style="color:#64748b;">— request failed</span>
            </div>`
-        : "";
-    return `<tr><td style="padding:12px 14px;${borderTop}${hl}">
+            : "";
+        return `<tr><td style="padding:12px 14px;${borderTop}${hl}">
   <table width="100%" cellspacing="0" cellpadding="0"><tr>
     <td style="font-size:12px;font-weight:700;font-family:ui-monospace,Menlo,monospace;color:${methodColor};width:52px;">${escapeHtml(req.method)}</td>
-    <td style="font-size:13px;color:#475569;padding:0 8px;">${escapeHtml(req.path)}</td>
-    <td style="font-size:13px;font-weight:700;color:${netStatusColor(req.status)};text-align:right;width:44px;">${req.status}</td>
-    <td style="font-size:12px;color:#94a3b8;text-align:right;width:56px;white-space:nowrap;">${escapeHtml(req.ms)}ms</td>
+    <td style="font-size:13px;color:#475569;padding:0 8px;">${escapeHtml(netPath(req.url))}</td>
+    <td style="font-size:13px;font-weight:700;color:${netStatusColor(status)};text-align:right;width:44px;">${escapeHtml(String(req.status ?? '—'))}</td>
+    <td style="font-size:12px;color:#94a3b8;text-align:right;width:72px;white-space:nowrap;">${escapeHtml(req.durationMs == null ? '—' : String(Math.round(req.durationMs)))}ms</td>
   </tr></table>
   ${errBlock}
 </td></tr>`;
-  }).join("");
+      }).join("");
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -296,8 +300,8 @@ export function buildFeedbackReportHtml(params: {
               <table width="100%" style="background:#ffffff;border-radius:14px;border:1px solid #e2e8f0;">
                 <tr>
                   <td style="padding:18px 20px 6px 20px;">
-                    <div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;">Console (sample)</div>
-                    <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Representative lines captured with the report</div>
+                    <div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;">Console</div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Latest lines captured with the report</div>
                   </td>
                 </tr>
                 <tr>
@@ -316,8 +320,8 @@ export function buildFeedbackReportHtml(params: {
               <table width="100%" style="background:#ffffff;border-radius:14px;border:1px solid #e2e8f0;">
                 <tr>
                   <td style="padding:18px 20px 6px 20px;">
-                    <div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;">Network (sample)</div>
-                    <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Requests correlated with this session (demo data)</div>
+                    <div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;">Network</div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Requests captured with status codes and timings</div>
                   </td>
                 </tr>
                 <tr>
