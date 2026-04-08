@@ -89,11 +89,66 @@ function boot(cfg){
     var now=Date.now();prune(now);
     events.push({id:uid(),timestamp:now,type:ev.type,description:ev.description});
   }
-  function pushCons(level,text){
+  function pruneCons(now){
+    var cut=now-30000;
+    cons=cons.filter(function(e){return e.timestamp>=cut;});
+    if(cons.length>100)cons=cons.slice(cons.length-100);
+  }
+  function safeStringify(v){
+    if(v==null)return '';
+    if(typeof v==='string')return v;
+    if(typeof v==='number'||typeof v==='boolean')return String(v);
+    if(v instanceof Error){
+      var st=v.stack||'';
+      return (v.name?String(v.name):'Error')+(v.message?(': '+String(v.message)):'')+(st?('\\n'+String(st)):'');
+    }
+    try{
+      var seen=typeof WeakSet!=='undefined'?new WeakSet():null;
+      return JSON.stringify(v,function(_k,val){
+        if(val&&typeof val==='object'){
+          if(seen){
+            if(seen.has(val))return'[Circular]';
+            seen.add(val);
+          }
+          if(val instanceof Error){
+            return {name:val.name,message:val.message,stack:val.stack};
+          }
+        }
+        return val;
+      });
+    }catch(_){
+      try{return String(v);}catch(__){return '[Unserializable]';}
+    }
+  }
+  function argsToMessage(args){
+    try{
+      return Array.prototype.map.call(args,function(a){return safeStringify(a);}).join(' ');
+    }catch(_){return '';}
+  }
+  function pushCons(type,args,stack){
     if(!captureConsole)return;
     var now=Date.now();
-    cons.push({level:level,text:String(text||'').slice(0,900),timestamp:now});
-    if(cons.length>80)cons=cons.slice(cons.length-80);
+    pruneCons(now);
+    var msg=argsToMessage(args);
+    var entry={type:type,message:String(msg||'').slice(0,4000),timestamp:now};
+    if(stack)entry.stack=String(stack).slice(0,6000);
+    else{
+      try{
+        for(var i=0;i<args.length;i++){
+          var a=args[i];
+          if(a instanceof Error && a.stack){entry.stack=String(a.stack).slice(0,6000);break;}
+        }
+      }catch(_){}
+    }
+    cons.push(entry);
+    if(cons.length>100)cons=cons.slice(cons.length-100);
+  }
+  function getConsoleLogs(){return cons.slice();}
+  function sendLogsToServer(){
+    var endpoint='/api/logs';
+    var url=(W?W:'')+endpoint;
+    var body={logs:getConsoleLogs(),url:location.href,userAgent:navigator.userAgent};
+    return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).catch(function(){});
   }
   function pushNet(row){
     if(!row)return;
@@ -102,38 +157,35 @@ function boot(cfg){
     if(net.length>60)net=net.slice(net.length-60);
   }
 
-  function safeStr(v){
-    if(v==null)return'';
-    if(typeof v==='string')return v;
-    try{return JSON.stringify(v);}catch(_){return String(v);}
-  }
-  function joinArgs(args){
-    try{return Array.prototype.map.call(args,function(a){return safeStr(a);}).join(' ');}
-    catch(_){return '';}
-  }
-
   if(captureConsole){
-    var orig={log:console.log,warn:console.warn,error:console.error,info:console.info};
-    function wrap(level,key){
+    var orig={log:console.log,warn:console.warn,error:console.error,info:console.info,debug:console.debug};
+    function wrap(type,key){
       return function(){
-        try{pushCons(level,joinArgs(arguments));}catch(_){}
+        try{pushCons(type,arguments);}catch(_){}
         try{return orig[key].apply(console,arguments);}catch(_2){}
       };
     }
     console.log=wrap('log','log');
     console.warn=wrap('warn','warn');
     console.error=wrap('error','error');
-    console.info=wrap('log','info');
+    console.info=wrap('info','info');
+    console.debug=wrap('debug','debug');
     window.addEventListener('error',function(e){
-      try{pushCons('error',(e&&e.message?e.message:'Uncaught error')+(e&&e.filename?(' @ '+e.filename+':'+e.lineno+':'+e.colno):''));}catch(_){}
+      try{
+        var msg=(e&&e.message)?e.message:'Uncaught error';
+        var loc=(e&&e.filename)?(' @ '+e.filename+':'+e.lineno+':'+e.colno):'';
+        pushCons('error',[msg+loc],(e&&e.error&&e.error.stack)?e.error.stack:null);
+      }catch(_){}
     });
     window.addEventListener('unhandledrejection',function(e){
       try{
         var r=e&&e.reason;
-        var msg=(r&&r.message)?r.message:safeStr(r);
-        pushCons('error','Unhandled rejection: '+msg);
+        var st=(r&&r.stack)?r.stack:null;
+        var msg=(r&&r.message)?r.message:safeStringify(r);
+        pushCons('error',['Unhandled rejection: '+msg],st);
       }catch(_){}
     });
+    try{window.getConsoleLogs=getConsoleLogs;window.sendLogsToServer=sendLogsToServer;}catch(_){}
   }
 
   // Network capture (fetch + XHR). Records failures only when captureNetFailOnly=true.
@@ -290,7 +342,7 @@ function boot(cfg){
     fetch(W+'/api/widget/feedback',{
       method:'POST',
       headers:{'Content-Type':'application/json','X-Whisper-Key':apiKey},
-      body:JSON.stringify({message:msg,context:ctx,events:sessionOn?events:[],console:captureConsole?cons:[],network:net,receiptAt:Date.now()})
+      body:JSON.stringify({message:msg,context:ctx,events:sessionOn?events:[],console:captureConsole?getConsoleLogs():[],network:net,receiptAt:Date.now()})
     }).then(function(r){
       return r.json().then(function(j){return{ok:r.ok,status:r.status,j:j};});
     }).then(function(x){
