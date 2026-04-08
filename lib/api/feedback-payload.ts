@@ -39,17 +39,20 @@ export function parseFeedbackPayload(body: unknown): ParsedFeedbackPayload | nul
       ? body.receiptAt
       : Date.now();
 
+  // Support both shapes:
+  // - widget payload: { context: { ... , url }, ... }
+  // - sdk payload: { url, userAgent, ... } (no context object)
   const ctx = body.context;
-  if (!isRecord(ctx)) return null;
+  const topUrl = typeof body.url === "string" ? body.url : "";
   const context: FeedbackContext = {
-    browser: String(ctx.browser ?? ""),
-    browserVersion: String(ctx.browserVersion ?? ""),
-    os: String(ctx.os ?? ""),
-    screenResolution: String(ctx.screenResolution ?? ""),
-    windowSize: String(ctx.windowSize ?? ""),
-    language: String(ctx.language ?? ""),
-    timezone: String(ctx.timezone ?? ""),
-    url: String(ctx.url ?? ""),
+    browser: isRecord(ctx) ? String(ctx.browser ?? "") : "",
+    browserVersion: isRecord(ctx) ? String(ctx.browserVersion ?? "") : "",
+    os: isRecord(ctx) ? String(ctx.os ?? "") : "",
+    screenResolution: isRecord(ctx) ? String(ctx.screenResolution ?? "") : "",
+    windowSize: isRecord(ctx) ? String(ctx.windowSize ?? "") : "",
+    language: isRecord(ctx) ? String(ctx.language ?? "") : "",
+    timezone: isRecord(ctx) ? String(ctx.timezone ?? "") : "",
+    url: isRecord(ctx) ? String(ctx.url ?? topUrl ?? "") : topUrl,
   };
 
   if (!Array.isArray(body.events)) return null;
@@ -70,9 +73,24 @@ export function parseFeedbackPayload(body: unknown): ParsedFeedbackPayload | nul
   if (Array.isArray(consoleRaw)) {
     for (const c of consoleRaw.slice(0, FEEDBACK_MAX_CONSOLE)) {
       if (!isRecord(c)) continue;
-      const level = c.level;
-      if (level !== "log" && level !== "warn" && level !== "error") continue;
-      const text = typeof c.text === "string" ? c.text.trim() : "";
+      // Accept both:
+      // - email schema: { level, text, timestamp }
+      // - sdk schema: { type, message, timestamp, stack? }
+      const rawLevel = c.level ?? c.type;
+      const level =
+        rawLevel === "error" || rawLevel === "warn" || rawLevel === "log"
+          ? rawLevel
+          : rawLevel === "info" || rawLevel === "debug"
+            ? "log"
+            : null;
+      if (!level) continue;
+
+      const text =
+        typeof c.text === "string"
+          ? c.text.trim()
+          : typeof c.message === "string"
+            ? c.message.trim()
+            : "";
       const timestamp = Number(c.timestamp);
       if (!text || !Number.isFinite(timestamp)) continue;
       consoleEntries.push({ level, text, timestamp });

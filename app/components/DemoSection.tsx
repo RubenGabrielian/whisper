@@ -139,12 +139,12 @@ function buildLines(data: ReportData): TerminalLine[] {
    Terminal Line Renderer
 ───────────────────────────────────────────── */
 const VALUE_STYLES: Record<string, string> = {
-  cyan:   "text-cyan-400",
+  cyan:   "text-amber-400",
   mint:   "text-emerald-400",
-  zinc:   "text-slate-400",
+  zinc:   "text-zinc-400",
   red:    "text-red-400",
   orange: "text-orange-400",
-  bool:   "text-purple-400",
+  bool:   "text-violet-400",
 };
 
 const STATUS_COLORS: Record<number, string> = {};
@@ -155,10 +155,10 @@ function statusColor(s: number) {
 }
 
 const LOG_COLORS: Record<LogLevel, string> = {
-  error: "bg-red-500/20 text-red-400 border-red-500/30",
-  warn:  "bg-orange-500/15 text-orange-400 border-orange-500/25",
-  log:   "bg-slate-700/50 text-slate-400 border-slate-600/50",
-  info:  "bg-blue-500/15 text-blue-400 border-blue-500/25",
+  error: "bg-red-500/15 text-red-400 border-2 border-red-900/60",
+  warn:  "bg-amber-500/15 text-amber-400 border-2 border-amber-900/50",
+  log:   "bg-zinc-800 text-zinc-400 border-2 border-zinc-700",
+  info:  "bg-blue-500/10 text-blue-400 border-2 border-blue-900/40",
 };
 
 function TermLine({ line, index }: { line: TerminalLine; index: number }) {
@@ -170,7 +170,7 @@ function TermLine({ line, index }: { line: TerminalLine; index: number }) {
       className="flex items-start gap-3 min-h-[1.45rem]"
     >
       {/* Gutter line number */}
-      <span className="select-none text-slate-600 text-right w-5 shrink-0 tabular-nums leading-[1.45rem]">
+      <span className="select-none text-zinc-700 text-right w-5 shrink-0 tabular-nums leading-[1.45rem] border-r border-zinc-800 pr-1 mr-1">
         {index + 1}
       </span>
 
@@ -179,14 +179,14 @@ function TermLine({ line, index }: { line: TerminalLine; index: number }) {
         {line.kind === "blank" && <span className="opacity-0">·</span>}
 
         {line.kind === "comment" && (
-          <span className="text-slate-500 italic">{line.text}</span>
+          <span className="text-zinc-600 italic font-mono">{line.text}</span>
         )}
 
         {line.kind === "kv" && (
           <span className="flex gap-2 flex-wrap">
             <span className="text-emerald-400 shrink-0">{line.key}</span>
-            <span className="text-slate-500">→</span>
-            <span className={VALUE_STYLES[line.valueStyle] ?? "text-slate-400"}>
+            <span className="text-zinc-600">→</span>
+            <span className={VALUE_STYLES[line.valueStyle] ?? "text-zinc-400"}>
               {line.value}
             </span>
           </span>
@@ -199,8 +199,8 @@ function TermLine({ line, index }: { line: TerminalLine; index: number }) {
             >
               {line.level}
             </span>
-            <span className="text-slate-500 text-[0.7rem]">{line.ts}</span>
-            <span className="text-slate-300">{line.message}</span>
+            <span className="text-zinc-600 text-[0.7rem]">{line.ts}</span>
+            <span className="text-zinc-300">{line.message}</span>
           </span>
         )}
 
@@ -209,11 +209,11 @@ function TermLine({ line, index }: { line: TerminalLine; index: number }) {
             <span className={`shrink-0 text-[0.65rem] font-bold w-8 ${line.method === "GET" ? "text-blue-400" : line.method === "POST" ? "text-emerald-400" : "text-orange-400"}`}>
               {line.method}
             </span>
-            <span className="text-slate-400 flex-1 truncate">{line.path}</span>
+            <span className="text-zinc-400 flex-1 truncate">{line.path}</span>
             <span className={`shrink-0 font-bold text-[0.8rem] ${statusColor(line.status)}`}>
               {line.status}
             </span>
-            <span className="shrink-0 text-slate-500">{line.duration}</span>
+            <span className="shrink-0 text-zinc-500">{line.duration}</span>
           </span>
         )}
 
@@ -236,7 +236,7 @@ function Cursor() {
     <motion.span
       animate={{ opacity: [1, 0] }}
       transition={{ duration: 0.6, repeat: Infinity, repeatType: "reverse" }}
-      className="inline-block w-1.5 h-4 bg-cyan-400 rounded-sm ml-1 align-middle"
+      className="inline-block w-1.5 h-4 bg-amber-400 ml-1 align-middle"
     />
   );
 }
@@ -250,7 +250,7 @@ function SpinnerDots() {
       {[0, 1, 2].map((i) => (
         <motion.span
           key={i}
-          className="w-1 h-1 rounded-full bg-cyan-500"
+          className="w-1 h-1 bg-amber-400"
           animate={{ scale: [1, 1.6, 1], opacity: [0.4, 1, 0.4] }}
           transition={{ duration: 1, repeat: Infinity, delay: i * 0.18 }}
         />
@@ -418,16 +418,16 @@ export default function DemoSection() {
   ───────────────────────────────────────────── */
   const severityBadge =
     reportData?.severity === "CRITICAL"
-      ? "bg-red-500/15 text-red-400 border border-red-500/25"
+      ? "bg-red-100 text-red-700 border-2 border-red-700"
       : reportData?.severity === "HIGH"
-      ? "bg-orange-500/15 text-orange-400 border border-orange-500/25"
-      : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/25";
+      ? "bg-amber-100 text-amber-700 border-2 border-amber-700"
+      : "bg-emerald-100 text-emerald-700 border-2 border-emerald-700";
 
   return (
-    <section ref={sectionRef} id="demo" className="relative py-28 px-6 overflow-hidden">
+    <section ref={sectionRef} id="demo" className="relative py-28 px-6 overflow-hidden grid-paper-bg">
       {/* Background */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_50%,rgba(8,145,178,0.06)_0%,transparent_70%)]" />
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/25 to-transparent" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_50%,rgba(251,191,36,0.03)_0%,transparent_70%)]" />
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent" />
 
       <div className="relative max-w-5xl mx-auto">
         {/* ── Section header ─────────────────── */}
@@ -442,27 +442,27 @@ export default function DemoSection() {
         >
           <motion.div
             variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16,1,0.3,1] } } }}
-            className="inline-flex items-center gap-2 text-[0.72rem] font-mono font-medium text-cyan-600 tracking-widest uppercase mb-4"
+            className="inline-flex items-center gap-2 text-[0.68rem] font-mono font-bold text-amber-700 tracking-[0.18em] uppercase mb-4"
           >
-            <span className="w-5 h-px bg-cyan-500/50" />
+            <span className="w-5 h-[2px] bg-amber-600" />
             Live Demo
-            <span className="w-5 h-px bg-cyan-500/50" />
+            <span className="w-5 h-[2px] bg-amber-600" />
           </motion.div>
 
           <motion.h2
             variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.16,1,0.3,1] } } }}
-            className="font-display font-extrabold text-[clamp(2rem,4.5vw,3.4rem)] text-slate-900 tracking-tight leading-tight"
+            className="font-display font-black text-[clamp(2rem,4.5vw,3.4rem)] text-zinc-950 tracking-tight leading-tight"
           >
             See it work.
-            <span className="text-slate-500"> Right now.</span>
+            <span className="text-zinc-500"> Right now.</span>
           </motion.h2>
 
           <motion.p
             variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.16,1,0.3,1] } } }}
-            className="text-slate-600 text-[0.92rem] mt-3 max-w-md mx-auto leading-relaxed"
+            className="font-mono text-zinc-600 text-[0.92rem] mt-3 max-w-md mx-auto leading-relaxed"
           >
-            Click the button. Whisper captures{" "}
-            <span className="text-slate-900 font-medium">your real browser context</span> instantly — no
+            Click the button. Whybug captures{" "}
+            <span className="text-zinc-950 font-semibold">your real browser context</span> instantly — no
             setup, no backend.
           </motion.p>
         </motion.div>
@@ -477,28 +477,27 @@ export default function DemoSection() {
           {/* ── Left panel: trigger + stats ─── */}
           <div className="flex flex-col gap-4">
             {/* CTA card */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/[0.04]">
+            <div className="border-2 border-zinc-950 bg-white p-6 shadow-[6px_6px_0px_0px_#000]">
               <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-8 h-8 rounded-xl bg-cyan-600/10 border border-cyan-500/25 flex items-center justify-center text-cyan-600">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                <div className="w-8 h-8 border-2 border-zinc-950 bg-amber-400 flex items-center justify-center text-zinc-950 shadow-[2px_2px_0px_0px_#000]">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                   </svg>
                 </div>
                 <div>
-                  <div className="text-[0.82rem] font-semibold text-slate-900">Simulate Bug Report</div>
-                  <div className="text-[0.7rem] text-slate-500">Captures real context from your browser</div>
+                  <div className="text-[0.82rem] font-display font-bold text-zinc-950">Simulate Bug Report</div>
+                  <div className="text-[0.68rem] font-mono text-zinc-500">Captures real context from your browser</div>
                 </div>
               </div>
 
               <motion.button
                 onClick={handleCapture}
                 disabled={status === "capturing"}
-                whileHover={status !== "capturing" ? { scale: 1.02, boxShadow: "0 8px 32px rgba(8,145,178,0.25)" } : {}}
-                whileTap={status !== "capturing" ? { scale: 0.97 } : {}}
-                className={`w-full py-3.5 rounded-xl font-bold text-[0.88rem] transition-all duration-200 flex items-center justify-center gap-2.5 ${
+                whileTap={status !== "capturing" ? { x: 2, y: 2 } : {}}
+                className={`w-full py-3.5 font-bold text-[0.88rem] transition-[transform,box-shadow,background-color] duration-75 flex items-center justify-center gap-2.5 border-2 ${
                   status === "capturing"
-                    ? "bg-cyan-600/15 text-cyan-600/70 cursor-not-allowed border border-cyan-500/20"
-                    : "bg-cyan-600 text-white shadow-md shadow-cyan-600/20 hover:bg-cyan-500"
+                    ? "bg-zinc-800 text-zinc-500 cursor-not-allowed border-zinc-700 shadow-none"
+                    : "bg-amber-400 text-zinc-950 border-zinc-950 shadow-[4px_4px_0px_0px_#000] hover:shadow-[3px_3px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px]"
                 }`}
               >
                 {status === "capturing" ? (
@@ -521,7 +520,7 @@ export default function DemoSection() {
                 <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-center text-[0.68rem] text-slate-500 mt-3"
+                  className="text-center text-[0.68rem] font-mono text-zinc-600 mt-3"
                 >
                   Report generated {runCount} time{runCount !== 1 ? "s" : ""}
                 </motion.p>
@@ -529,25 +528,25 @@ export default function DemoSection() {
             </div>
 
             {/* What will be captured */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/[0.04]">
-              <div className="text-[0.68rem] font-mono text-slate-500 uppercase tracking-widest mb-3">
-                What gets captured
+            <div className="border-2 border-zinc-950 bg-white p-5 shadow-[6px_6px_0px_0px_#000]">
+              <div className="text-[0.65rem] font-mono font-bold text-zinc-500 uppercase tracking-[0.18em] mb-3">
+                // What gets captured
               </div>
               <ul className="space-y-2.5">
                 {[
-                  { icon: "🌐", label: "Browser & OS",        sub: "navigator.userAgent"     },
-                  { icon: "📐", label: "Screen / Window Size", sub: "window.screen + innerWidth" },
-                  { icon: "📋", label: "Console Logs",         sub: "intercepted in real-time"  },
-                  { icon: "🔴", label: "JS Errors",            sub: "window onerror handler"    },
-                  { icon: "📡", label: "Network Requests",     sub: "fetch / XHR interceptor"   },
-                  { icon: "🌍", label: "URL & Referrer",       sub: "location + document"        },
-                  { icon: "🕐", label: "Timezone",             sub: "Intl.DateTimeFormat"        },
-                ].map(({ icon, label, sub }) => (
+                  { label: "Browser & OS",        sub: "navigator.userAgent",       color: "text-amber-600" },
+                  { label: "Screen / Window Size", sub: "window.screen + innerWidth", color: "text-amber-600" },
+                  { label: "Console Logs",         sub: "intercepted in real-time",  color: "text-emerald-600" },
+                  { label: "JS Errors",            sub: "window onerror handler",    color: "text-red-600" },
+                  { label: "Network Requests",     sub: "fetch / XHR interceptor",   color: "text-orange-600" },
+                  { label: "URL & Referrer",       sub: "location + document",        color: "text-violet-600" },
+                  { label: "Timezone",             sub: "Intl.DateTimeFormat",        color: "text-zinc-500" },
+                ].map(({ label, sub, color }) => (
                   <li key={label} className="flex items-start gap-2.5">
-                    <span className="shrink-0 text-[0.9rem] leading-none mt-0.5">{icon}</span>
+                    <span className={`shrink-0 text-[0.7rem] leading-none mt-0.5 font-bold ${color}`}>▸</span>
                     <div>
-                      <div className="text-[0.78rem] text-slate-800 font-medium leading-tight">{label}</div>
-                      <div className="text-[0.68rem] text-slate-500 font-mono">{sub}</div>
+                      <div className="text-[0.78rem] font-display font-bold text-zinc-950 leading-tight">{label}</div>
+                      <div className="text-[0.65rem] text-zinc-500 font-mono">{sub}</div>
                     </div>
                   </li>
                 ))}
@@ -563,16 +562,16 @@ export default function DemoSection() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.4 }}
-                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/[0.04]"
+                  className="border-2 border-zinc-950 bg-white p-5 shadow-[6px_6px_0px_0px_#000]"
                 >
-                  <div className="text-[0.68rem] font-mono text-slate-500 uppercase tracking-widest mb-3">
-                    Auto-determined severity
+                  <div className="text-[0.65rem] font-mono font-bold text-zinc-500 uppercase tracking-[0.18em] mb-3">
+                    // Auto-determined severity
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`px-3 py-1.5 rounded-lg text-[0.75rem] font-bold tracking-wider ${severityBadge}`}>
-                      {reportData.severity}
+                    <span className={`px-3 py-1.5 text-[0.72rem] font-mono font-bold tracking-[0.12em] uppercase ${severityBadge}`}>
+                      !! {reportData.severity}
                     </span>
-                    <span className="text-[0.75rem] text-slate-600">
+                    <span className="text-[0.75rem] font-mono text-zinc-600">
                       {reportData.severity === "CRITICAL"
                         ? "JS errors detected"
                         : reportData.severity === "HIGH"
@@ -580,7 +579,7 @@ export default function DemoSection() {
                         : "No critical signals"}
                     </span>
                   </div>
-                  <div className="mt-3 font-mono text-[0.65rem] text-slate-500 truncate">
+                  <div className="mt-3 font-mono text-[0.65rem] text-zinc-500 truncate">
                     id: {reportData.id}
                   </div>
                 </motion.div>
@@ -589,57 +588,57 @@ export default function DemoSection() {
           </div>
 
           {/* ── Right panel: debug console terminal ── */}
-          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xl shadow-slate-900/10 min-h-[520px] flex flex-col">
-            {/* Window chrome */}
-            <div className="flex items-center gap-0 px-4 py-3 border-b border-slate-200 bg-slate-50 shrink-0">
+          <div className="border-2 border-zinc-700 bg-zinc-950 overflow-hidden shadow-[6px_6px_0px_0px_#000] min-h-[520px] flex flex-col terminal-scanlines">
+            {/* Window chrome — vintage OS style */}
+            <div className="flex items-center gap-0 px-4 py-2.5 border-b-2 border-zinc-800 bg-zinc-900 shrink-0">
               <div className="flex gap-1.5 mr-4">
-                <span className="w-3 h-3 rounded-full bg-[#FF5F57]" />
-                <span className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
-                <span className="w-3 h-3 rounded-full bg-[#28C840]" />
+                <span className="w-3 h-3 border border-red-700 bg-[#FF5F57]" />
+                <span className="w-3 h-3 border border-yellow-700 bg-[#FFBD2E]" />
+                <span className="w-3 h-3 border border-green-700 bg-[#28C840]" />
               </div>
               <div className="flex-1 flex items-center gap-2">
-                <span className="text-[0.68rem] font-mono text-slate-500">
-                  whisper · debug-console
+                <span className="text-[0.65rem] font-mono text-zinc-600 tracking-wider uppercase">
+                  WHYBUG · DEBUG-CONSOLE
                 </span>
                 {reportData && (
                   <motion.span
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className={`text-[0.6rem] font-mono font-semibold px-2 py-0.5 rounded-full border ${severityBadge}`}
+                    className={`text-[0.6rem] font-mono font-bold px-2 py-0.5 ${severityBadge}`}
                   >
-                    {reportData.severity}
+                    !! {reportData.severity}
                   </motion.span>
                 )}
               </div>
               {/* Status indicator */}
-              <div className="flex items-center gap-1.5 text-[0.65rem] font-mono text-slate-500">
+              <div className="flex items-center gap-1.5 text-[0.65rem] font-mono text-zinc-500">
                 {status === "idle" && (
                   <span className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                    idle
+                    <span className="w-1.5 h-1.5 bg-zinc-600" />
+                    IDLE
                   </span>
                 )}
                 {status === "capturing" && (
-                  <span className="flex items-center gap-1.5 text-cyan-600">
+                  <span className="flex items-center gap-1.5 text-amber-400">
                     <motion.span
                       animate={{ opacity: [1, 0.3] }}
                       transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
-                      className="w-1.5 h-1.5 rounded-full bg-cyan-600"
+                      className="w-1.5 h-1.5 bg-amber-400"
                     />
-                    capturing…
+                    CAPTURING…
                   </span>
                 )}
                 {status === "done" && (
-                  <span className="flex items-center gap-1.5 text-emerald-600">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    {visibleCount >= allLines.length ? "complete" : "streaming…"}
+                  <span className="flex items-center gap-1.5 text-emerald-400">
+                    <span className="w-1.5 h-1.5 bg-emerald-500" />
+                    {visibleCount >= allLines.length ? "DONE" : "STREAMING…"}
                   </span>
                 )}
               </div>
             </div>
 
             {/* Terminal body */}
-            <div className="flex-1 overflow-y-auto p-5 font-mono text-[0.73rem] leading-relaxed max-h-[600px] scroll-smooth bg-slate-900 text-slate-200">
+            <div className="flex-1 overflow-y-auto p-5 font-mono text-[0.73rem] leading-relaxed max-h-[600px] scroll-smooth bg-zinc-950 text-zinc-200">
               <AnimatePresence mode="wait">
                 {status === "idle" && (
                   <motion.div
@@ -649,14 +648,14 @@ export default function DemoSection() {
                     exit={{ opacity: 0 }}
                     className="h-full flex flex-col items-center justify-center gap-3 text-center py-16"
                   >
-                    <div className="w-12 h-12 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center text-slate-400 mb-2">
+                    <div className="w-12 h-12 border-2 border-zinc-700 bg-zinc-900 flex items-center justify-center text-zinc-500 mb-2 shadow-[2px_2px_0px_0px_#000]">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                         <polyline points="4 17 10 11 4 5" />
                         <line x1="12" y1="19" x2="20" y2="19" />
                       </svg>
                     </div>
-                    <p className="text-slate-400 text-[0.78rem]">Waiting for report…</p>
-                    <p className="text-slate-500 text-[0.68rem]">Click the button to capture context</p>
+                    <p className="text-zinc-500 text-[0.78rem] font-mono">Waiting for report…</p>
+                    <p className="text-zinc-600 text-[0.68rem] font-mono">Click the button to capture context</p>
                     <Cursor />
                   </motion.div>
                 )}
@@ -688,7 +687,7 @@ export default function DemoSection() {
                         ) : (
                           <SpinnerDots />
                         )}
-                        <span className={step.done ? "text-slate-500" : "text-slate-300"}>
+                        <span className={step.done ? "text-zinc-600" : "text-zinc-300"}>
                           {step.text}
                         </span>
                       </motion.div>
@@ -716,8 +715,8 @@ export default function DemoSection() {
             </div>
 
             {/* Footer bar */}
-            <div className="shrink-0 border-t border-white/10 px-5 py-2.5 flex items-center justify-between bg-slate-950">
-              <div className="flex items-center gap-4 text-[0.63rem] font-mono text-slate-500">
+            <div className="shrink-0 border-t-2 border-zinc-800 px-5 py-2 flex items-center justify-between bg-zinc-900">
+              <div className="flex items-center gap-4 text-[0.63rem] font-mono text-zinc-600">
                 <span>UTF-8</span>
                 <span>LF</span>
                 <span>JSON</span>
@@ -726,11 +725,11 @@ export default function DemoSection() {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="flex items-center gap-3 text-[0.63rem] font-mono text-slate-500"
+                  className="flex items-center gap-3 text-[0.63rem] font-mono text-zinc-600"
                 >
                   <span>{allLines.length} lines</span>
-                  <span className="text-cyan-400/80">
-                    {visibleCount >= allLines.length ? "● complete" : `● ${visibleCount}/${allLines.length}`}
+                  <span className="text-amber-400/80">
+                    {visibleCount >= allLines.length ? "● DONE" : `● ${visibleCount}/${allLines.length}`}
                   </span>
                 </motion.div>
               )}
@@ -743,10 +742,10 @@ export default function DemoSection() {
           initial={{ opacity: 0 }}
           animate={inView ? { opacity: 1 } : { opacity: 0 }}
           transition={{ delay: 0.6 }}
-          className="text-center text-[0.72rem] text-slate-500 mt-8 font-mono"
+          className="text-center text-[0.72rem] text-zinc-500 mt-8 font-mono"
         >
           ↑ This is real data from{" "}
-          <span className="text-slate-700">your browser</span>. No server involved.
+          <span className="text-zinc-700">your browser</span>. No server involved.
           Network entries are simulated for demo purposes.
         </motion.p>
       </div>

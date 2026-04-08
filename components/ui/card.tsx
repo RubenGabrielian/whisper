@@ -9,7 +9,11 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-2xl border border-zinc-800 bg-zinc-900/50 text-card-foreground shadow-sm backdrop-blur-md transition-colors hover:border-zinc-700",
+      // Neobrutalist 3D card: thick border, white surface, strong hard shadow
+      "rounded-none border-2 border-zinc-950 bg-white text-zinc-950 " +
+      "shadow-[6px_6px_0px_0px_#000000] " +
+      "transition-[transform,box-shadow] duration-75 ease-out " +
+      "hover:shadow-[8px_8px_0px_0px_#000000] hover:-translate-x-[1px] hover:-translate-y-[1px]",
       className
     )}
     {...props}
@@ -36,7 +40,7 @@ const CardTitle = React.forwardRef<
   <h3
     ref={ref}
     className={cn(
-      "text-2xl font-semibold leading-none tracking-tight text-foreground",
+      "text-xl font-black leading-none tracking-tight text-zinc-950",
       className
     )}
     {...props}
@@ -50,7 +54,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
+    className={cn("text-sm text-zinc-500", className)}
     {...props}
   />
 ));

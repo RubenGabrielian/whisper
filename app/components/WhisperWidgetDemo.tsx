@@ -184,28 +184,28 @@ const EVENT_CFG: Record<
 > = {
   click: {
     icon: Mouse,
-    dot: "bg-cyan-400",
+    dot: "bg-amber-400",
     label: "click",
-    pill: "bg-cyan-500/15 text-cyan-300 border-cyan-500/25",
+    pill: "bg-amber-500/15 text-amber-400 border-2 border-amber-900/50",
   },
   input: {
     icon: Keyboard,
     dot: "bg-violet-400",
     label: "input",
-    pill: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+    pill: "bg-violet-500/15 text-violet-400 border-2 border-violet-900/40",
   },
   navigation: {
     icon: MapIcon,
     dot: "bg-emerald-400",
     label: "nav",
-    pill: "bg-emerald-500/15 text-emerald-300 border-emerald-500/25",
+    pill: "bg-emerald-500/15 text-emerald-400 border-2 border-emerald-900/40",
   },
 };
 
 const LOG_PILL: Record<LogLevel, string> = {
-  error: "bg-red-500/20 text-red-400 border-red-500/30",
-  warn: "bg-amber-500/15 text-amber-400 border-amber-500/25",
-  log: "bg-zinc-700/40 text-zinc-500 border-zinc-600/30",
+  error: "bg-red-500/15 text-red-400 border-2 border-red-900/60",
+  warn: "bg-amber-500/15 text-amber-400 border-2 border-amber-900/50",
+  log: "bg-zinc-800 text-zinc-400 border-2 border-zinc-700",
 };
 
 function netStatusColor(s: number) {
@@ -334,7 +334,7 @@ function Dots() {
       {[0, 1, 2].map((i) => (
         <motion.span
           key={i}
-          className="block w-[3px] h-[3px] rounded-full bg-cyan-400"
+          className="block w-[3px] h-[3px] bg-amber-400"
           animate={{ scale: [1, 1.8, 1], opacity: [0.3, 1, 0.3] }}
           transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.18 }}
         />
@@ -346,10 +346,10 @@ function Dots() {
 function SectionLabel({ icon: Icon, label, badge }: { icon?: React.ElementType; label: string; badge?: string }) {
   return (
     <div className="flex items-center gap-2 mb-2.5">
-      {Icon && <Icon size={11} className="text-slate-500" />}
-      <span className="text-[0.6rem] font-medium text-slate-600 uppercase tracking-[0.14em]">{label}</span>
+      {Icon && <Icon size={11} className="text-zinc-600" />}
+      <span className="text-[0.6rem] font-mono font-bold text-zinc-600 uppercase tracking-[0.15em]">// {label}</span>
       {badge && (
-        <span className="ml-auto text-[0.58rem] text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-[1px] rounded-full">
+        <span className="ml-auto text-[0.58rem] font-mono text-zinc-600 bg-zinc-800 border border-zinc-700 px-1.5 py-[1px]">
           {badge}
         </span>
       )}
@@ -389,44 +389,44 @@ function InputStage({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18 }}
     >
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-slate-200">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b-2 border-zinc-800">
         <div className="flex items-center gap-2">
-          <span className="text-cyan-600">
-            <Zap size={12} />
+          <span className="w-5 h-5 flex items-center justify-center bg-amber-400 border border-zinc-950 shadow-[1px_1px_0px_0px_#000]">
+            <Zap size={10} className="text-zinc-950" fill="currentColor" />
           </span>
-          <span className="text-[0.8rem] font-semibold text-slate-900 tracking-tight">Whisper</span>
-          <span className="text-[0.58rem] text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-[2px] rounded-full">
+          <span className="text-[0.8rem] font-display font-bold text-zinc-100 tracking-tight">Whybug</span>
+          <span className="text-[0.55rem] font-mono font-bold text-zinc-500 bg-zinc-800 border border-zinc-700 px-1.5 py-[2px]">
             DEMO
           </span>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all"
+          className="w-7 h-7 flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 border border-transparent hover:border-zinc-700 transition-all"
         >
           <X size={12} />
         </button>
       </div>
 
       <div className="px-4 pt-4 pb-2">
-        <p className="text-[0.83rem] font-semibold text-slate-900 mb-1">What went wrong?</p>
-        <p className="text-[0.71rem] text-slate-600 mb-3 leading-relaxed">
+        <p className="text-[0.83rem] font-display font-bold text-zinc-100 mb-1">What went wrong?</p>
+        <p className="text-[0.71rem] font-mono text-zinc-500 mb-3 leading-relaxed">
           Your session is being tracked for the last 30 seconds. Describe the issue in your own words.
         </p>
         {error && (
           <div
             role="alert"
-            className="mb-3 rounded-xl border border-red-500/35 bg-red-950/50 px-3 py-2.5 flex gap-2 items-start"
+            className="mb-3 border-2 border-red-900/60 bg-red-950/40 px-3 py-2.5 flex gap-2 items-start"
           >
             <AlertTriangle size={14} className="text-red-400 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <p className="text-[0.72rem] font-medium text-red-200">Could not send email</p>
-              <p className="text-[0.68rem] text-red-300/90 mt-0.5 leading-relaxed">{error}</p>
+              <p className="text-[0.72rem] font-bold text-red-300">Could not send email</p>
+              <p className="text-[0.68rem] font-mono text-red-400/80 mt-0.5 leading-relaxed">{error}</p>
             </div>
             <button
               type="button"
               onClick={onDismissError}
-              className="text-zinc-500 hover:text-zinc-300 p-0.5 shrink-0"
+              className="text-zinc-600 hover:text-zinc-300 p-0.5 shrink-0"
               aria-label="Dismiss"
             >
               <X size={12} />
@@ -439,10 +439,10 @@ function InputStage({
           onChange={(e) => onChange(e.target.value)}
           placeholder="e.g. The checkout button does nothing after I tap Pay…"
           rows={4}
-          className="w-full resize-none rounded-xl bg-slate-50 border border-slate-200
-            focus:border-cyan-500/50 focus:ring-0 focus:outline-none
-            text-[0.8rem] text-slate-900 placeholder-slate-400
-            px-3.5 py-3 transition-colors duration-200 leading-relaxed"
+          className="w-full resize-none bg-zinc-950 border-2 border-zinc-700
+            focus:border-amber-500/60 focus:ring-0 focus:outline-none
+            text-[0.8rem] font-mono text-zinc-200 placeholder-zinc-600
+            px-3.5 py-3 transition-colors duration-150 leading-relaxed"
         />
       </div>
 
@@ -451,20 +451,19 @@ function InputStage({
           type="button"
           onClick={onSubmit}
           disabled={!canSend}
-          whileHover={canSend ? { scale: 1.02 } : {}}
-          whileTap={canSend ? { scale: 0.98 } : {}}
-          className={`w-full py-2.5 rounded-xl text-[0.83rem] font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
+          whileTap={canSend ? { x: 2, y: 2 } : {}}
+          className={`w-full py-2.5 text-[0.83rem] font-bold transition-[transform,box-shadow,background-color] duration-75 flex items-center justify-center gap-2 border-2 ${
             canSend
-              ? "bg-cyan-600 text-white shadow-md shadow-cyan-600/20 hover:bg-cyan-500"
-              : "bg-slate-100 text-slate-400 cursor-not-allowed"
+              ? "bg-amber-400 text-zinc-950 border-zinc-950 shadow-[3px_3px_0px_0px_#000] hover:shadow-[2px_2px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px]"
+              : "bg-zinc-800 text-zinc-600 border-zinc-700 cursor-not-allowed shadow-none"
           }`}
         >
           Send report
           {canSend && <ArrowRight size={13} />}
         </motion.button>
 
-        <p className="flex items-center justify-center gap-1.5 text-[0.62rem] text-slate-500">
-          <Zap size={8} className="text-cyan-600/60" />
+        <p className="flex items-center justify-center gap-1.5 text-[0.62rem] font-mono text-zinc-600">
+          <Zap size={8} className="text-amber-400/60" />
           Opens developer receipt with session timeline &amp; tech context
         </p>
       </div>
@@ -490,12 +489,12 @@ function SubmittingStage({ step }: { step: number }) {
       className="px-5 py-6"
     >
       <div className="flex items-center gap-3 mb-5">
-        <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-          <Zap size={14} />
+        <div className="w-8 h-8 border-2 border-amber-400 bg-amber-400 flex items-center justify-center shadow-[2px_2px_0px_0px_#000]">
+          <Zap size={14} className="text-zinc-950" />
         </div>
         <div>
-          <p className="text-[0.78rem] font-semibold text-slate-900">Preparing receipt…</p>
-          <p className="text-[0.64rem] text-slate-600">Packaging timeline + environment snapshot</p>
+          <p className="text-[0.78rem] font-display font-bold text-zinc-100">Preparing receipt…</p>
+          <p className="text-[0.64rem] font-mono text-zinc-500">Packaging timeline + environment snapshot</p>
         </div>
       </div>
 
@@ -506,7 +505,7 @@ function SubmittingStage({ step }: { step: number }) {
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.1, duration: 0.25, ease: "easeOut" }}
-            className="flex items-center gap-3 text-[0.74rem]"
+            className="flex items-center gap-3 text-[0.74rem] font-mono"
           >
             <span className="shrink-0 w-4 flex justify-center">
               {i < step ? (
@@ -514,10 +513,10 @@ function SubmittingStage({ step }: { step: number }) {
               ) : i === step ? (
                 <Dots />
               ) : (
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 inline-block" />
+                <span className="w-1.5 h-1.5 bg-zinc-700 inline-block" />
               )}
             </span>
-            <span className={i < step ? "text-slate-500" : i === step ? "text-slate-900" : "text-slate-400"}>{text}</span>
+            <span className={i < step ? "text-zinc-600" : i === step ? "text-zinc-100" : "text-zinc-600"}>{text}</span>
           </motion.div>
         ))}
       </div>
@@ -557,12 +556,12 @@ function SessionTimeline({ events, refTs }: { events: SessionEvent[]; refTs: num
       />
 
       {empty ? (
-        <p className="text-[0.72rem] text-slate-600 italic px-1">
+        <p className="text-[0.72rem] font-mono text-zinc-600 italic px-1">
           No events yet — click or type on the page, then send a report.
         </p>
       ) : (
         <motion.div variants={container} initial="hidden" animate="show" className="relative pl-1">
-          <div className="absolute left-[11px] top-2 bottom-2 w-px bg-gradient-to-b from-slate-300/80 via-slate-200/50 to-transparent" />
+          <div className="absolute left-[11px] top-2 bottom-2 w-px bg-gradient-to-b from-zinc-600 via-zinc-700/50 to-transparent" />
 
           {displayed.map((ev, idx) => {
             const cfg = EVENT_CFG[ev.type];
@@ -573,25 +572,25 @@ function SessionTimeline({ events, refTs }: { events: SessionEvent[]; refTs: num
               <motion.div
                 key={ev.id}
                 variants={item}
-                className={`relative flex items-start gap-3 py-2.5 pl-1 ${!isLast ? "border-b border-slate-100" : ""}`}
+                className={`relative flex items-start gap-3 py-2.5 pl-1 ${!isLast ? "border-b border-zinc-800" : ""}`}
               >
                 <div
-                  className={`absolute left-[7px] mt-[6px] w-2 h-2 rounded-full ring-2 ring-white shrink-0 ${cfg.dot}`}
+                  className={`absolute left-[7px] mt-[6px] w-2 h-2 shrink-0 ${cfg.dot}`}
                 />
 
-                <div className="shrink-0 w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 ml-4">
+                <div className="shrink-0 w-7 h-7 border-2 border-zinc-700 bg-zinc-800 flex items-center justify-center text-zinc-400 ml-4">
                   <Icon size={12} strokeWidth={2} />
                 </div>
 
                 <div className="flex-1 min-w-0 pt-0.5">
-                  <p className="text-[0.74rem] text-slate-700 leading-snug">{ev.description}</p>
+                  <p className="text-[0.74rem] font-mono text-zinc-300 leading-snug">{ev.description}</p>
                 </div>
 
                 <div className="shrink-0 flex flex-col items-end gap-1 ml-1 pt-0.5">
-                  <span className={`text-[0.58rem] font-mono px-1.5 py-[2px] rounded border ${cfg.pill}`}>
+                  <span className={`text-[0.58rem] font-mono px-1.5 py-[2px] ${cfg.pill}`}>
                     {cfg.label}
                   </span>
-                  <span className="text-[0.62rem] font-mono text-slate-500 flex items-center gap-0.5">
+                  <span className="text-[0.62rem] font-mono text-zinc-600 flex items-center gap-0.5">
                     <Clock size={9} />
                     {relTime(ev.timestamp, refTs)}
                   </span>
@@ -645,22 +644,22 @@ function ReceiptStage({
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-        className="relative overflow-hidden px-4 py-3.5 border-b border-slate-200 shrink-0 bg-slate-50/80"
+        className="relative overflow-hidden px-4 py-3.5 border-b-2 border-zinc-800 shrink-0 bg-zinc-900"
       >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_100%_120%_at_50%_0%,rgba(8,145,178,0.08)_0%,transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_100%_120%_at_50%_0%,rgba(251,191,36,0.04)_0%,transparent_60%)]" />
         <div className="relative flex items-start justify-between gap-2">
           <div className="flex items-start gap-3">
             <motion.div
               initial={{ scale: 0, rotate: -180 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ delay: 0.12, type: "spring", stiffness: 280, damping: 18 }}
-              className="mt-0.5 w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center text-emerald-600 shrink-0"
+              className="mt-0.5 w-8 h-8 border-2 border-emerald-600 bg-emerald-400 flex items-center justify-center text-zinc-950 shrink-0 shadow-[2px_2px_0px_0px_#000]"
             >
               <Check size={14} />
             </motion.div>
             <div>
-              <p className="text-[0.83rem] font-bold text-slate-900 leading-tight">Developer receipt</p>
-              <p className="text-[0.68rem] text-slate-600 mt-0.5">
+              <p className="text-[0.83rem] font-display font-bold text-zinc-100 leading-tight">Developer receipt</p>
+              <p className="text-[0.68rem] font-mono text-zinc-500 mt-0.5">
                 A copy was emailed to you; this is the same summary in the widget
               </p>
             </div>
@@ -668,7 +667,7 @@ function ReceiptStage({
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all"
+            className="shrink-0 w-7 h-7 flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 border border-transparent hover:border-zinc-700 transition-all"
           >
             <X size={12} />
           </button>
@@ -685,8 +684,8 @@ function ReceiptStage({
         <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-4">
           <motion.div variants={fadeRow}>
             <SectionLabel icon={MessageSquare} label="User message" />
-            <div className="rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-3">
-              <p className="text-[0.8rem] text-slate-700 leading-relaxed">&ldquo;{message}&rdquo;</p>
+            <div className="border-2 border-zinc-700 bg-zinc-900 px-3.5 py-3">
+              <p className="text-[0.8rem] font-mono text-zinc-300 leading-relaxed italic">&ldquo;{message}&rdquo;</p>
             </div>
           </motion.div>
 
@@ -705,37 +704,37 @@ function ReceiptStage({
                 { k: "Language", v: ctx.language },
                 { k: "Time zone", v: ctx.timezone },
               ].map(({ k, v }) => (
-                <div key={k} className="rounded-lg bg-slate-50 border border-slate-200 px-2.5 py-2">
-                  <div className="text-[0.57rem] font-mono text-slate-500 uppercase tracking-wider mb-0.5">{k}</div>
-                  <div className="text-[0.72rem] text-slate-800 truncate font-medium">{v || "—"}</div>
+                <div key={k} className="border-2 border-zinc-700 bg-zinc-900 px-2.5 py-2">
+                  <div className="text-[0.57rem] font-mono text-zinc-600 uppercase tracking-wider mb-0.5">{k}</div>
+                  <div className="text-[0.72rem] font-mono text-zinc-200 truncate">{v || "—"}</div>
                 </div>
               ))}
             </div>
-            <div className="mt-1.5 rounded-lg bg-slate-50 border border-slate-200 px-2.5 py-2">
-              <div className="text-[0.57rem] font-mono text-slate-500 uppercase tracking-wider mb-0.5">
+            <div className="mt-1.5 border-2 border-zinc-700 bg-zinc-900 px-2.5 py-2">
+              <div className="text-[0.57rem] font-mono text-zinc-600 uppercase tracking-wider mb-0.5">
                 <Globe size={8} className="inline mr-1 opacity-70" />
                 URL
               </div>
-              <div className="text-[0.68rem] text-cyan-700 truncate font-mono">{ctx.url}</div>
+              <div className="text-[0.68rem] text-amber-400 truncate font-mono">{ctx.url}</div>
             </div>
           </motion.div>
 
           <motion.div variants={fadeRow}>
             <SectionLabel icon={Activity} label="Console (sample)" badge={`${MOCK_CONSOLE.length} lines`} />
-            <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-900">
+            <div className="border-2 border-zinc-700 overflow-hidden bg-zinc-950 terminal-scanlines">
               {MOCK_CONSOLE.map((entry, i) => (
                 <div
                   key={i}
                   className={`flex items-start gap-2.5 px-3 py-2.5 font-mono text-[0.68rem] ${
-                    i !== 0 ? "border-t border-white/10" : ""
+                    i !== 0 ? "border-t border-zinc-800" : ""
                   }`}
                 >
                   <span
-                    className={`shrink-0 mt-px px-1.5 py-[1px] rounded text-[0.57rem] font-bold uppercase tracking-wider border ${LOG_PILL[entry.level]}`}
+                    className={`shrink-0 mt-px px-1.5 py-[1px] text-[0.57rem] font-bold uppercase tracking-wider ${LOG_PILL[entry.level]}`}
                   >
                     {entry.level}
                   </span>
-                  <span className="text-slate-300 leading-relaxed break-all">{entry.text}</span>
+                  <span className="text-zinc-300 leading-relaxed break-all">{entry.text}</span>
                 </div>
               ))}
             </div>
@@ -743,25 +742,25 @@ function ReceiptStage({
 
           <motion.div variants={fadeRow}>
             <SectionLabel icon={Wifi} label="Network (sample)" badge="intercepted" />
-            <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-900">
+            <div className="border-2 border-zinc-700 overflow-hidden bg-zinc-950 terminal-scanlines">
               {MOCK_NETWORK.map((req, i) => (
                 <div
                   key={i}
                   className={`flex flex-col gap-1 px-3 py-2.5 font-mono text-[0.68rem] ${
-                    i !== 0 ? "border-t border-white/10" : ""
-                  } ${req.highlight ? "bg-red-500/[0.06]" : ""}`}
+                    i !== 0 ? "border-t border-zinc-800" : ""
+                  } ${req.highlight ? "bg-red-500/[0.04]" : ""}`}
                 >
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
                       className={`shrink-0 font-bold w-9 text-[0.62rem] ${
-                        req.method === "GET" ? "text-sky-400" : req.method === "POST" ? "text-emerald-400" : "text-amber-400"
+                        req.method === "GET" ? "text-blue-400" : req.method === "POST" ? "text-emerald-400" : "text-amber-400"
                       }`}
                     >
                       {req.method}
                     </span>
-                    <span className="text-slate-400 flex-1 min-w-0 truncate">{req.path}</span>
+                    <span className="text-zinc-500 flex-1 min-w-0 truncate">{req.path}</span>
                     <span className={`shrink-0 font-bold ${netStatusColor(req.status)}`}>{req.status}</span>
-                    <span className="shrink-0 text-slate-500">{req.ms}ms</span>
+                    <span className="shrink-0 text-zinc-600">{req.ms}ms</span>
                   </div>
                   {"highlight" in req && req.highlight && "errorLabel" in req && (
                     <div className="flex items-center gap-1.5 text-[0.62rem] text-red-400/95 pl-[2.25rem]">
@@ -777,25 +776,24 @@ function ReceiptStage({
 
           <motion.div
             variants={fadeRow}
-            className="rounded-2xl bg-cyan-500/[0.06] border border-cyan-500/20 p-4"
+            className="border-2 border-amber-500/40 bg-amber-500/[0.04] p-4"
           >
-            <p className="text-[0.75rem] font-semibold text-slate-900 mb-1">
-              This is the <span className="text-cyan-600">full picture</span> per report.
+            <p className="text-[0.75rem] font-display font-bold text-zinc-100 mb-1">
+              This is the <span className="text-amber-400">full picture</span> per report.
             </p>
-            <p className="text-[0.67rem] text-slate-600 mb-3 leading-relaxed">
+            <p className="text-[0.67rem] font-mono text-zinc-500 mb-3 leading-relaxed">
               Timeline + device context + logs + network — without asking the user for screenshots.
             </p>
             <motion.a
               href="#pricing"
               onClick={onClose}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-cyan-600 text-white text-[0.79rem] font-bold shadow-md shadow-cyan-600/20 hover:bg-cyan-500"
+              whileTap={{ x: 2, y: 2 }}
+              className="flex items-center justify-center gap-2 w-full py-2.5 bg-amber-400 text-zinc-950 text-[0.79rem] font-bold border-2 border-zinc-950 shadow-[4px_4px_0px_0px_#000] hover:shadow-[3px_3px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px] transition-[transform,box-shadow] duration-75"
             >
-              Get Whisper for your site
+              Get Whybug for your site
               <ArrowRight size={13} />
             </motion.a>
-            <button type="button" onClick={onReset} className="w-full mt-2 py-1.5 text-[0.68rem] text-slate-500 hover:text-slate-800 transition-colors">
+            <button type="button" onClick={onReset} className="w-full mt-2 py-1.5 text-[0.68rem] font-mono text-zinc-600 hover:text-zinc-300 transition-colors">
               Try another message
             </button>
           </motion.div>
@@ -947,7 +945,7 @@ export default function WhisperWidgetDemo() {
             [1.45, 1.2].map((scale, i) => (
               <motion.span
                 key={i}
-                className="absolute inset-0 rounded-full bg-cyan-400"
+                className="absolute inset-0 bg-amber-400"
                 animate={{ scale: [1, scale], opacity: [0.2, 0] }}
                 transition={{ duration: 2.2, repeat: Infinity, ease: "easeOut", delay: i * 0.45 }}
               />
@@ -956,13 +954,13 @@ export default function WhisperWidgetDemo() {
           <motion.button
             type="button"
             onClick={isOpen ? close : open}
-            whileHover={{ scale: 1.06 }}
-            whileTap={{ scale: 0.94 }}
+            whileTap={{ x: 3, y: 3 }}
             aria-label={isOpen ? "Close feedback" : "Open feedback"}
             data-whisper-widget
-            className="relative flex items-center justify-center rounded-full bg-white text-cyan-600 border border-slate-200
-              shadow-lg shadow-slate-900/10
-              hover:border-cyan-500/40 hover:bg-slate-50 transition-colors duration-200"
+            className="relative flex items-center justify-center bg-amber-400 text-zinc-950 border-2 border-zinc-950
+              shadow-[5px_5px_0px_0px_#000]
+              hover:shadow-[4px_4px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px]
+              transition-[transform,box-shadow] duration-75"
             style={{ width: BTN_SIZE, height: BTN_SIZE }}
           >
             <AnimatePresence mode="wait">
@@ -994,10 +992,10 @@ export default function WhisperWidgetDemo() {
             <div
               className="absolute right-full mr-3 top-1/2 -translate-y-1/2 pointer-events-none select-none
               opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-all duration-150
-              whitespace-nowrap text-[0.72rem] font-medium text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-lg"
+              whitespace-nowrap text-[0.72rem] font-mono font-bold text-zinc-950 bg-amber-400 border-2 border-zinc-950 px-3 py-2 shadow-[3px_3px_0px_0px_#000]"
             >
               Feedback
-              <span className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[5px] w-2 h-2 bg-white border-r border-t border-slate-200 rotate-45" />
+              <span className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[5px] w-2 h-2 bg-amber-400 border-r-2 border-t-2 border-zinc-950 rotate-45" />
             </div>
           )}
         </div>
@@ -1017,12 +1015,12 @@ export default function WhisperWidgetDemo() {
               width: 400,
               maxWidth: `calc(100vw - ${EDGE * 2}px)`,
             }}
-            className="fixed z-[110] flex flex-col overflow-hidden rounded-2xl
-              bg-white border border-slate-200
-              shadow-xl shadow-slate-900/10"
+            className="fixed z-[110] flex flex-col overflow-hidden
+              bg-zinc-900 border-2 border-zinc-700
+              shadow-[8px_8px_0px_0px_#000]"
             data-whisper-widget
           >
-            <div className="absolute top-0 left-12 right-12 h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent" />
+            <div className="absolute top-0 left-12 right-12 h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
 
             <AnimatePresence mode="wait">
               {stage === "input" && (
@@ -1054,9 +1052,9 @@ export default function WhisperWidgetDemo() {
             </AnimatePresence>
 
             {stage !== "receipt" && (
-              <div className="shrink-0 border-t border-slate-200 px-4 py-2 flex items-center justify-center gap-1.5 bg-slate-50">
-                <Zap size={8} className="text-cyan-600/70" />
-                <span className="text-[0.57rem] text-slate-500 tracking-wide">Whisper widget demo</span>
+              <div className="shrink-0 border-t-2 border-zinc-800 px-4 py-2 flex items-center justify-center gap-1.5 bg-zinc-950">
+                <Zap size={8} className="text-amber-400/70" fill="currentColor" />
+                <span className="text-[0.57rem] font-mono text-zinc-600 tracking-wider uppercase">Whybug widget demo</span>
               </div>
             )}
           </motion.div>
