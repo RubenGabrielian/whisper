@@ -196,7 +196,7 @@ function boot(cfg){
   });
 }
 
-fetch(W+'/api/embed/config?id='+encodeURIComponent(apiKey),{credentials:'omit',cache:'no-store'})
+fetch(W+'/api/embed/config?id='+encodeURIComponent(apiKey)+'&v='+Date.now(),{credentials:'omit',cache:'no-store'})
   .then(function(r){return r.json().catch(function(){return null});})
   .then(function(cfg){if(cfg&&cfg.ok)boot(cfg);});
 })();`;

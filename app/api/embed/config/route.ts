@@ -10,8 +10,14 @@ const CORS: Record<string, string> = {
   "Access-Control-Max-Age": "86400",
 };
 
+const HEADERS: Record<string, string> = {
+  ...CORS,
+  // Config changes should propagate immediately (avoid browser/CDN caching).
+  "Cache-Control": "no-store, max-age=0, must-revalidate",
+};
+
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS });
+  return new NextResponse(null, { status: 204, headers: HEADERS });
 }
 
 /**
@@ -21,7 +27,10 @@ export async function OPTIONS() {
 export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get("id")?.trim() ?? "";
   if (!id) {
-    return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400, headers: CORS });
+    return NextResponse.json(
+      { ok: false, error: "Missing id" },
+      { status: 400, headers: HEADERS }
+    );
   }
 
   let supabase;
@@ -29,7 +38,10 @@ export async function GET(request: Request) {
     supabase = createServiceRoleClient();
   } catch (e) {
     console.error("[embed/config]", e);
-    return NextResponse.json({ ok: false, error: "Server misconfigured" }, { status: 503, headers: CORS });
+    return NextResponse.json(
+      { ok: false, error: "Server misconfigured" },
+      { status: 503, headers: HEADERS }
+    );
   }
 
   const { data: row, error: qErr } = await supabase
@@ -42,11 +54,17 @@ export async function GET(request: Request) {
 
   if (qErr) {
     console.error("[embed/config] lookup", qErr);
-    return NextResponse.json({ ok: false, error: "Could not load config" }, { status: 500, headers: CORS });
+    return NextResponse.json(
+      { ok: false, error: "Could not load config" },
+      { status: 500, headers: HEADERS }
+    );
   }
 
   if (!row || row.status !== "active") {
-    return NextResponse.json({ ok: false, error: "Invalid or inactive project key" }, { status: 403, headers: CORS });
+    return NextResponse.json(
+      { ok: false, error: "Invalid or inactive project key" },
+      { status: 403, headers: HEADERS }
+    );
   }
 
   const wt = row.widget_theme;
@@ -75,6 +93,6 @@ export async function GET(request: Request) {
       sessionTimelineSeconds,
       captureDeviceMetadata: row.capture_device_metadata ?? true,
     },
-    { headers: CORS }
+    { headers: HEADERS }
   );
 }
