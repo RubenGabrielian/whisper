@@ -37,7 +37,9 @@ function looksLikeEmail(s: string): boolean {
 
 function looksLikeSlackWebhook(url: string): boolean {
   const u = url.trim();
-  return /^https:\/\/hooks\.slack\.com\/services\/[^/\s]+\/[^/\s]+\/[^/\s]+$/i.test(u);
+  // Slack incoming webhooks use the `hooks.slack.com/services/...` pattern.
+  // Be permissive (Slack may change token formats).
+  return /^https:\/\/hooks\.slack\.com\/services\/\S+$/i.test(u);
 }
 
 async function sendSlackWebhook(params: {
@@ -51,35 +53,14 @@ async function sendSlackWebhook(params: {
   const { webhookUrl, projectName, message, pageUrl, consoleCount, networkCount } = params;
   const title = projectName ? `Whisper · ${projectName}` : "Whisper";
 
-  // Slack Incoming Webhooks accept either {text} or {blocks}. We'll use blocks but keep it minimal.
-  const payload = {
-    text: `${title}: ${message}`,
-    blocks: [
-      {
-        type: "header",
-        text: { type: "plain_text", text: title, emoji: false },
-      },
-      {
-        type: "section",
-        text: { type: "mrkdwn", text: `*New feedback*\n>${message.replace(/\n/g, "\n>")}` },
-      },
-      {
-        type: "section",
-        fields: [
-          { type: "mrkdwn", text: `*Console*\n${consoleCount}` },
-          { type: "mrkdwn", text: `*Network*\n${networkCount}` },
-        ],
-      },
-      ...(pageUrl
-        ? [
-          {
-            type: "section",
-            text: { type: "mrkdwn", text: `*Page*\n${pageUrl}` },
-          },
-        ]
-        : []),
-    ],
-  };
+  // Use plain {text} for maximum compatibility with all webhook setups/workspaces.
+  const lines = [
+    `*${title}*`,
+    `*New feedback:* ${message}`,
+    pageUrl ? `*Page:* ${pageUrl}` : null,
+    `*Console:* ${consoleCount}  ·  *Network:* ${networkCount}`,
+  ].filter(Boolean);
+  const payload = { text: lines.join("\n") };
 
   const res = await fetch(webhookUrl, {
     method: "POST",
@@ -178,21 +159,26 @@ export async function POST(req: Request) {
 
   try {
     // Slack is best-effort: don't fail the request if webhook fails.
+    let slackSent = false;
     const slackUrl =
       typeof (project as { slack_webhook_url?: unknown }).slack_webhook_url === "string"
         ? (project as { slack_webhook_url: string }).slack_webhook_url.trim()
         : "";
     if (slackUrl && looksLikeSlackWebhook(slackUrl)) {
-      sendSlackWebhook({
-        webhookUrl: slackUrl,
-        projectName,
-        message: parsed.message,
-        pageUrl: parsed.context.url,
-        consoleCount: parsed.console.length,
-        networkCount: parsed.network.length,
-      }).catch((e) => {
+      try {
+        // Await so serverless doesn't exit early before the request is sent.
+        await sendSlackWebhook({
+          webhookUrl: slackUrl,
+          projectName,
+          message: parsed.message,
+          pageUrl: parsed.context.url,
+          consoleCount: parsed.console.length,
+          networkCount: parsed.network.length,
+        });
+        slackSent = true;
+      } catch (e) {
         console.error("[widget/feedback] Slack webhook error:", e);
-      });
+      }
     }
 
     const resend = new Resend(resendKey);
@@ -209,7 +195,7 @@ export async function POST(req: Request) {
       return corsJson({ error: error.message || "Email send failed" }, 502);
     }
 
-    return corsJson({ ok: true, id: data?.id ?? null });
+    return corsJson({ ok: true, id: data?.id ?? null, slackSent });
   } catch (e) {
     console.error("[widget/feedback]", e);
     return corsJson(
