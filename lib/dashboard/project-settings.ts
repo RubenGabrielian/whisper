@@ -22,40 +22,19 @@ export function getInstallScriptSrc(appOrigin: string): string {
 /**
  * Installation snippet — use your deployed Whisper app URL as `appOrigin`
  * (e.g. from the dashboard server via `getAppOriginFromHeaders()`).
+ * Widget appearance and behavior come from project settings via `GET /api/embed/config`
+ * (only `data-id` / API key is required on the script tag).
  */
 export function buildInstallScriptSnippet(
   apiKey: string,
-  s: ProjectDashboardSettings,
+  _s: ProjectDashboardSettings,
   appOrigin: string,
-  sessionTimelineSeconds?: SessionTimelineSeconds
+  _sessionTimelineSeconds?: SessionTimelineSeconds
 ): string {
-  const src = getInstallScriptSrc(appOrigin);
-  const attrs: string[] = [`src="${src}"`, `data-id="${apiKey}"`];
-
-  if (s.theme !== "system") {
-    attrs.push(`data-theme="${s.theme}"`);
-  }
-  if (s.accentColor?.trim()) {
-    attrs.push(`data-accent="${s.accentColor.trim()}"`);
-  }
-  attrs.push(`data-position="${s.position}"`);
-  const label = s.widgetLabel.trim();
-  if (label) {
-    attrs.push(`data-label="${label.replace(/"/g, "&quot;")}"`);
-  }
-  if (!s.captureConsole) attrs.push(`data-capture-console="false"`);
-  if (s.captureNetworkFailuresOnly) attrs.push(`data-network-failures-only="true"`);
-  if (!s.sessionTimelineEnabled) attrs.push(`data-session-timeline="false"`);
-  if (s.sessionTimelineEnabled && sessionTimelineSeconds) {
-    attrs.push(`data-session-seconds="${sessionTimelineSeconds}"`);
-  }
-  if (!s.captureDeviceMetadata) attrs.push(`data-device-metadata="false"`);
-
-  attrs.push("async");
-  return `<script ${attrs.join(" ")}></script>`;
+  return buildMinimalInstallScript(apiKey, appOrigin);
 }
 
-/** Minimal one-liner variant for marketing-style previews. */
+/** Same as {@link buildInstallScriptSnippet} — single script tag with `data-id` only. */
 export function buildMinimalInstallScript(apiKey: string, appOrigin: string): string {
   const src = getInstallScriptSrc(appOrigin);
   return `<script src="${src}" data-id="${apiKey}" async></script>`;

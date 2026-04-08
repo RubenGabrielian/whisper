@@ -4,8 +4,8 @@ import { buildWhisperSdkScript } from "@/lib/embed/whisper-sdk";
 export const runtime = "nodejs";
 
 /**
- * Serves the Whisper embed script for `<script src="…/api/embed/sdk">`.
- * Uses the request origin so the widget posts back to the same deployment.
+ * Serves the Whisper embed script for `<script src="…/api/embed/sdk" data-id="…">`.
+ * Widget options load from `GET /api/embed/config?id=<data-id>`; the script only needs `data-id`.
  */
 export async function GET(request: Request) {
   const origin = new URL(request.url).origin;

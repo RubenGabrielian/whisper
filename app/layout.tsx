@@ -27,11 +27,6 @@ export default function RootLayout({
         <Script
           src="http://localhost:3000/api/embed/sdk"
           data-id="wsp_live_876d451c4f7b4acaa0ee4a6a"
-          data-accent="#06b6d4"
-          data-position="bottom-right"
-          data-label="Send Feedback"
-          data-network-failures-only="true"
-          data-session-seconds="30"
           async
         />
       </body>
