@@ -84,8 +84,6 @@ function boot(cfg){
   var cons=[];
   var net=[];
   function prune(now){if(!windowMs)return;var cut=now-windowMs;events=events.filter(function(e){return e.timestamp>=cut;});}
-  function pruneCons(now){if(!windowMs)return;var cut=now-windowMs;cons=cons.filter(function(e){return e.timestamp>=cut;});}
-  function pruneNet(now){if(!windowMs)return;var cut=now-windowMs;net=net.filter(function(e){return e.timestamp>=cut;});}
   function push(ev){
     if(!windowMs)return;
     var now=Date.now();prune(now);
@@ -93,13 +91,13 @@ function boot(cfg){
   }
   function pushCons(level,text){
     if(!captureConsole)return;
-    var now=Date.now();if(windowMs)pruneCons(now);
+    var now=Date.now();
     cons.push({level:level,text:String(text||'').slice(0,900),timestamp:now});
     if(cons.length>80)cons=cons.slice(cons.length-80);
   }
   function pushNet(row){
-    if(!captureNetFailOnly && !row)return;
-    var now=Date.now();if(windowMs)pruneNet(now);
+    if(!row)return;
+    var now=Date.now();
     net.push(row);
     if(net.length>60)net=net.slice(net.length-60);
   }
