@@ -1,17 +1,14 @@
 "use client";
 
-/**
- * Dashboard projects: list, create wizard, and tabbed configuration (saved to Supabase).
- */
-
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
+  ChevronRight,
   ExternalLink,
-  FolderOpen,
+  Globe,
   Plus,
-  Settings2,
+  Search,
 } from "lucide-react";
 
 import { CreateProjectWizard } from "@/components/dashboard/CreateProjectWizard";
@@ -38,7 +35,6 @@ export type MockProject = Project;
 type Mode = "list" | "wizard" | "settings";
 
 export type ProjectCreationProps = {
-  /** Base URL of this Whisper deployment (used in the install snippet). */
   appOrigin: string;
 };
 
@@ -51,6 +47,7 @@ export function ProjectCreation({ appOrigin }: ProjectCreationProps) {
   const [settingsDraft, setSettingsDraft] = useState<ProjectDashboardSettings>(() =>
     defaultProjectDashboardSettings()
   );
+  const [search, setSearch] = useState("");
 
   const [name, setName] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -82,9 +79,7 @@ export function ProjectCreation({ appOrigin }: ProjectCreationProps) {
       }
     }
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   const openSettings = useCallback((project: Project) => {
@@ -122,19 +117,12 @@ export function ProjectCreation({ appOrigin }: ProjectCreationProps) {
         project?: Project;
       };
       if (!res.ok) {
-        const base =
-          typeof data.error === "string" ? data.error : "Could not create project.";
-        const detail =
-          typeof data.details === "string" && data.details.length > 0
-            ? ` ${data.details}`
-            : "";
+        const base = typeof data.error === "string" ? data.error : "Could not create project.";
+        const detail = typeof data.details === "string" && data.details.length > 0 ? ` ${data.details}` : "";
         setCreateError(`${base}${detail}`.trim());
         return;
       }
-      if (!data.project) {
-        setCreateError("Could not create project.");
-        return;
-      }
+      if (!data.project) { setCreateError("Could not create project."); return; }
       setProjects((prev) => [data.project!, ...prev]);
       setSelectedProject(data.project);
       setSettingsDraft({ ...data.project.settings });
@@ -152,9 +140,7 @@ export function ProjectCreation({ appOrigin }: ProjectCreationProps) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (mode !== "settings" || !selectedProject) return;
-    if (JSON.stringify(settingsDraft) === JSON.stringify(selectedProject.settings)) {
-      return;
-    }
+    if (JSON.stringify(settingsDraft) === JSON.stringify(selectedProject.settings)) return;
 
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
@@ -166,13 +152,8 @@ export function ProjectCreation({ appOrigin }: ProjectCreationProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(settingsDraft),
         });
-        const data = (await res.json().catch(() => ({}))) as {
-          error?: string;
-          project?: Project;
-        };
-        if (!res.ok) {
-          throw new Error(typeof data.error === "string" ? data.error : "Save failed");
-        }
+        const data = (await res.json().catch(() => ({}))) as { error?: string; project?: Project };
+        if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Save failed");
         if (!data.project) throw new Error("Invalid response");
         setSelectedProject(data.project);
         setProjects((prev) => prev.map((p) => (p.id === data.project!.id ? data.project! : p)));
@@ -183,229 +164,218 @@ export function ProjectCreation({ appOrigin }: ProjectCreationProps) {
       }
     }, 900);
 
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-    };
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [settingsDraft, mode, selectedProject]);
 
-  return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-xl shadow-slate-900/5">
-      <div className="border-b border-slate-200 px-6 py-6 sm:px-8">
-        {mode === "list" && listError && (
-          <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {listError}
-          </p>
-        )}
+  const filtered = projects.filter((p) =>
+    !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.websiteUrl.toLowerCase().includes(search.toLowerCase())
+  );
 
-        {mode === "list" && (
+  return (
+    <AnimatePresence mode="wait">
+      {mode === "list" && (
+        <motion.div
+          key="list"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+        >
+          {/* Page header */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-mono font-semibold uppercase tracking-[0.14em] text-cyan-600">
+              <h1 className="text-[1.4rem] font-semibold tracking-tight text-zinc-900">
                 Projects
-              </p>
-              <h2 className="mt-1 font-display text-2xl font-bold tracking-tight text-slate-900">
-                Your sites
-              </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Configure Whisper per project — ingestion, appearance, and alerts.
+              </h1>
+              <p className="mt-0.5 text-[0.82rem] text-zinc-500">
+                Manage your Whisper widgets and configuration.
               </p>
             </div>
             <Button
               type="button"
-              onClick={() => {
-                setCreateError(null);
-                setName("");
-                setWebsiteUrl("");
-                setMode("wizard");
-              }}
-              className="bg-cyan-600 text-white shadow-md shadow-cyan-600/20 hover:bg-cyan-500"
+              size="sm"
+              onClick={() => { setCreateError(null); setName(""); setWebsiteUrl(""); setMode("wizard"); }}
+              className="bg-zinc-900 text-white shadow-sm hover:bg-zinc-800"
             >
-              <Plus className="size-4" />
-              Add project
+              <Plus className="size-3.5" />
+              New project
             </Button>
           </div>
-        )}
 
-        {mode === "wizard" && (
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-mono font-semibold uppercase tracking-[0.14em] text-cyan-600">
-                New project
-              </p>
-              <h2 className="mt-1 font-display text-xl font-bold text-slate-900">Create</h2>
+          {listError && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[0.82rem] text-red-800">
+              {listError}
             </div>
-          </div>
-        )}
+          )}
 
-        {mode === "settings" && selectedProject && (
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-3">
+          {/* Search */}
+          {projects.length > 0 && (
+            <div className="relative mt-6">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Search projects…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 w-full max-w-xs rounded-lg border border-zinc-200 bg-white pl-9 pr-3 text-[0.82rem] text-zinc-900 placeholder:text-zinc-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 transition-shadow"
+              />
+            </div>
+          )}
+
+          {/* Project grid */}
+          <div className="mt-5">
+            {listLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="size-5 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-900" />
+              </div>
+            ) : filtered.length === 0 && projects.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-16 text-center">
+                <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-lg bg-zinc-100">
+                  <Globe className="size-5 text-zinc-400" />
+                </div>
+                <p className="text-sm font-medium text-zinc-900">No projects yet</p>
+                <p className="mt-1 text-[0.82rem] text-zinc-500">
+                  Create your first project to start collecting feedback.
+                </p>
+              </div>
+            ) : filtered.length === 0 ? (
+              <p className="py-12 text-center text-sm text-zinc-500">No projects match your search.</p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {filtered.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => openSettings(p)}
+                    className="group flex flex-col rounded-xl border border-zinc-200 bg-white p-4 text-left shadow-sm transition-all hover:border-zinc-300 hover:shadow-md"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-500 group-hover:bg-zinc-900 group-hover:text-white transition-colors">
+                        <Globe className="size-4" />
+                      </div>
+                      <span
+                        className={cn(
+                          "mt-0.5 inline-flex rounded-full px-2 py-0.5 text-[0.68rem] font-medium",
+                          p.status === "active"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-zinc-100 text-zinc-500"
+                        )}
+                      >
+                        {p.status === "active" ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    <h3 className="mt-3 text-sm font-semibold text-zinc-900 group-hover:text-zinc-950">
+                      {p.name}
+                    </h3>
+                    <div className="mt-1 flex items-center gap-1 text-[0.75rem] text-zinc-400">
+                      <span className="truncate">{p.websiteUrl.replace(/^https?:\/\//, "")}</span>
+                      <ExternalLink className="size-3 shrink-0" />
+                    </div>
+                    <div className="mt-auto flex items-center justify-end pt-3">
+                      <span className="flex items-center gap-1 text-[0.75rem] font-medium text-zinc-400 group-hover:text-zinc-600 transition-colors">
+                        Configure
+                        <ChevronRight className="size-3" />
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {mode === "wizard" && (
+        <motion.div
+          key="wizard"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.2 }}
+        >
+          <CreateProjectWizard
+            name={name}
+            websiteUrl={websiteUrl}
+            onNameChange={setName}
+            onWebsiteUrlChange={setWebsiteUrl}
+            onSubmit={handleCreateProject}
+            onBack={goToList}
+            creating={creating}
+            error={createError}
+            canSubmit={canCreate}
+          />
+        </motion.div>
+      )}
+
+      {mode === "settings" && selectedProject && (
+        <motion.div
+          key="settings"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.2 }}
+        >
+          {/* Breadcrumb */}
+          <div className="mb-6 flex items-center gap-2 text-[0.8rem]">
+            <button
+              type="button"
+              onClick={goToList}
+              className="font-medium text-zinc-500 transition-colors hover:text-zinc-900"
+            >
+              Projects
+            </button>
+            <ChevronRight className="size-3 text-zinc-300" />
+            <span className="font-medium text-zinc-900 truncate max-w-[200px]">{selectedProject.name}</span>
+          </div>
+
+          {/* Settings header */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-zinc-900 text-white">
+                <Globe className="size-5" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-zinc-900">{selectedProject.name}</h1>
+                <p className="text-[0.78rem] text-zinc-500">
+                  {selectedProject.websiteUrl.replace(/^https?:\/\//, "")}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {saveState === "saving" && (
+                <span className="flex items-center gap-1.5 text-[0.75rem] text-zinc-400">
+                  <div className="size-3 animate-spin rounded-full border border-zinc-300 border-t-zinc-600" />
+                  Saving…
+                </span>
+              )}
+              {saveState === "saved" && (
+                <span className="text-[0.75rem] text-emerald-600 font-medium">Saved</span>
+              )}
+              {saveState === "error" && (
+                <span className="text-[0.75rem] text-red-600 font-medium">Save failed</span>
+              )}
               <button
                 type="button"
                 onClick={goToList}
-                className="mt-1 inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-[0.78rem] font-medium text-zinc-600 shadow-sm transition-colors hover:bg-zinc-50"
               >
-                <ArrowLeft className="size-4" />
-                Projects
+                <ArrowLeft className="size-3" />
+                Back
               </button>
-              <div className="min-w-0 pl-1">
-                <p className="text-xs font-mono font-semibold uppercase tracking-[0.14em] text-cyan-600">
-                  Configuration
-                </p>
-                <h2 className="truncate font-display text-xl font-bold text-slate-900 sm:text-2xl">
-                  {selectedProject.name}
-                </h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  Local preview — wire to{" "}
-                  <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-800">
-                    router.put
-                  </code>{" "}
-                  or your API when ready.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-              <FolderOpen className="size-4 shrink-0 text-slate-500" aria-hidden />
-              <span className="truncate font-mono text-slate-700">{selectedProject.websiteUrl}</span>
             </div>
           </div>
-        )}
-      </div>
 
-      <div className="px-4 pb-8 pt-2 sm:px-8 sm:pb-10 sm:pt-4">
-        <AnimatePresence mode="wait">
-          {mode === "list" && (
-            <motion.div
-              key="list"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22 }}
-            >
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/5">
-                <div className="border-b border-slate-200 px-4 py-3 sm:px-5">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <Settings2 className="size-4 text-slate-500" aria-hidden />
-                    All projects
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[640px] text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
-                        <th className="px-4 py-3 font-medium sm:px-5">Name</th>
-                        <th className="px-4 py-3 font-medium sm:px-5">URL</th>
-                        <th className="px-4 py-3 font-medium sm:px-5">Status</th>
-                        <th className="px-4 py-3 text-right font-medium sm:px-5">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {listLoading ? (
-                        <tr>
-                          <td colSpan={4} className="px-5 py-12 text-center text-slate-600">
-                            Loading projects…
-                          </td>
-                        </tr>
-                      ) : projects.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="px-5 py-12 text-center text-slate-600">
-                            No projects yet. Add one to open the configuration workspace.
-                          </td>
-                        </tr>
-                      ) : (
-                        projects.map((p) => (
-                          <tr
-                            key={p.id}
-                            className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50"
-                          >
-                            <td className="px-4 py-3.5 font-medium text-slate-900 sm:px-5">
-                              {p.name}
-                            </td>
-                            <td className="px-4 py-3.5 sm:px-5">
-                              <a
-                                href={p.websiteUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex max-w-[220px] items-center gap-1.5 truncate text-cyan-600 hover:text-cyan-700"
-                              >
-                                <span className="truncate">{p.websiteUrl}</span>
-                                <ExternalLink className="size-3.5 shrink-0 opacity-70" />
-                              </a>
-                            </td>
-                            <td className="px-4 py-3.5 sm:px-5">
-                              <span
-                                className={cn(
-                                  "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                                  p.status === "active"
-                                    ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200"
-                                    : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
-                                )}
-                              >
-                                {p.status === "active" ? "Active" : "Inactive"}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3.5 text-right sm:px-5">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="border-slate-200 text-slate-800 hover:bg-slate-50"
-                                onClick={() => openSettings(p)}
-                              >
-                                Configure
-                              </Button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {mode === "wizard" && (
-            <motion.div key="wizard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <CreateProjectWizard
-                name={name}
-                websiteUrl={websiteUrl}
-                onNameChange={setName}
-                onWebsiteUrlChange={setWebsiteUrl}
-                onSubmit={handleCreateProject}
-                onBack={goToList}
-                creating={creating}
-                error={createError}
-                canSubmit={canCreate}
-              />
-            </motion.div>
-          )}
-
-          {mode === "settings" && selectedProject && (
-            <motion.div
-              key="settings"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
-            >
-              <ProjectSettingsPanel
-                apiKey={selectedProject.apiKey}
-                settings={settingsDraft}
-                onSettingsChange={setSettingsDraft}
-                appOrigin={appOrigin}
-                sessionTimelineSeconds={selectedProject.config.sessionTimelineSeconds}
-              />
-              <p className="mt-8 text-center text-xs text-slate-500">
-                {saveState === "saving" && "Saving…"}
-                {saveState === "saved" && "All changes saved to Supabase."}
-                {saveState === "error" && "Could not save. Check your connection and try again."}
-                {saveState === "idle" && "Edits save automatically to your project in Supabase."}
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
+          <div className="mt-6">
+            <ProjectSettingsPanel
+              apiKey={selectedProject.apiKey}
+              settings={settingsDraft}
+              onSettingsChange={setSettingsDraft}
+              appOrigin={appOrigin}
+              sessionTimelineSeconds={selectedProject.config.sessionTimelineSeconds}
+            />
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

@@ -9,11 +9,7 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      // Neobrutalist 3D card: thick border, white surface, strong hard shadow
-      "rounded-none border-2 border-zinc-950 bg-white text-zinc-950 " +
-      "shadow-[6px_6px_0px_0px_#000000] " +
-      "transition-[transform,box-shadow] duration-75 ease-out " +
-      "hover:shadow-[8px_8px_0px_0px_#000000] hover:-translate-x-[1px] hover:-translate-y-[1px]",
+      "rounded-2xl border border-zinc-200 bg-white text-zinc-900 shadow-xl shadow-zinc-950/[0.03]",
       className
     )}
     {...props}
@@ -27,7 +23,7 @@ const CardHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex flex-col space-y-1.5 p-6", className)}
+    className={cn("flex flex-col space-y-1.5 p-6 sm:p-7", className)}
     {...props}
   />
 ));
@@ -40,7 +36,7 @@ const CardTitle = React.forwardRef<
   <h3
     ref={ref}
     className={cn(
-      "text-xl font-black leading-none tracking-tight text-zinc-950",
+      "text-lg font-bold leading-none tracking-tight text-zinc-900",
       className
     )}
     {...props}
@@ -64,7 +60,7 @@ const CardContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+  <div ref={ref} className={cn("p-6 pt-0 sm:p-7 sm:pt-0", className)} {...props} />
 ));
 CardContent.displayName = "CardContent";
 
@@ -74,7 +70,7 @@ const CardFooter = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex items-center p-6 pt-0", className)}
+    className={cn("flex items-center p-6 pt-0 sm:p-7 sm:pt-0", className)}
     {...props}
   />
 ));

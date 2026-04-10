@@ -1,7 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,36 +30,27 @@ export function CreateProjectWizard({
   canSubmit,
 }: CreateProjectWizardProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }}
-      transition={{ duration: 0.28 }}
-      className="mx-auto max-w-xl"
-    >
+    <div className="mx-auto max-w-lg">
       <button
         type="button"
         onClick={onBack}
-        className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
+        className="mb-5 inline-flex items-center gap-1.5 text-[0.8rem] font-medium text-zinc-500 transition-colors hover:text-zinc-900"
       >
-        <ArrowLeft className="size-4" />
+        <ArrowLeft className="size-3.5" />
         Back to projects
       </button>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-900/5 sm:p-8">
-        <div className="text-center">
-          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <Sparkles className="size-6 text-cyan-600" aria-hidden />
-          </div>
-          <h3 className="font-display text-xl font-bold text-slate-900">New project</h3>
-          <p className="mt-1 text-sm text-slate-600">
-            Name your site and add its production URL. You&apos;ll configure the widget next.
+      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <div className="border-b border-zinc-100 px-6 py-5">
+          <h2 className="text-base font-semibold text-zinc-900">Create project</h2>
+          <p className="mt-0.5 text-[0.8rem] text-zinc-500">
+            Add your site details. You can configure the widget after.
           </p>
         </div>
 
-        <div className="mt-8 space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="wizard-name" className="text-slate-800">
+        <div className="space-y-4 px-6 py-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="wizard-name" className="text-[0.8rem] text-zinc-700">
               Project name
             </Label>
             <Input
@@ -68,11 +58,10 @@ export function CreateProjectWizard({
               placeholder="My Portfolio"
               value={name}
               onChange={(e) => onNameChange(e.target.value)}
-              className="h-12 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="wizard-url" className="text-slate-800">
+          <div className="space-y-1.5">
+            <Label htmlFor="wizard-url" className="text-[0.8rem] text-zinc-700">
               Website URL
             </Label>
             <Input
@@ -81,27 +70,32 @@ export function CreateProjectWizard({
               placeholder="https://myapp.com"
               value={websiteUrl}
               onChange={(e) => onWebsiteUrlChange(e.target.value)}
-              className="h-12 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400"
             />
           </div>
+
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[0.8rem] text-red-800">
+              {error}
+            </div>
+          )}
         </div>
 
-        {error && (
-          <p className="mt-5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
-          </p>
-        )}
-
-        <Button
-          type="button"
-          className="mt-8 w-full bg-cyan-600 text-white shadow-md shadow-cyan-600/20 hover:bg-cyan-500 disabled:opacity-50"
-          disabled={!canSubmit || creating}
-          onClick={() => void onSubmit()}
-        >
-          {creating ? "Creating…" : "Create project"}
-          <ArrowRight className="size-4" />
-        </Button>
+        <div className="flex items-center justify-end gap-2 border-t border-zinc-100 px-6 py-4">
+          <Button type="button" variant="ghost" size="sm" onClick={onBack}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="bg-zinc-900 text-white shadow-sm hover:bg-zinc-800"
+            disabled={!canSubmit || creating}
+            onClick={() => void onSubmit()}
+          >
+            {creating ? "Creating…" : "Create project"}
+            <ArrowRight className="size-3.5" />
+          </Button>
+        </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

@@ -3,7 +3,9 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bell,
+  Code2,
   Copy,
+  Check,
   Mail,
   MessageCircle,
   Paintbrush,
@@ -18,7 +20,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ACCENT_PRESETS,
   buildInstallScriptSnippet,
@@ -34,11 +35,18 @@ export type ProjectSettingsPanelProps = {
   settings: ProjectDashboardSettings;
   onSettingsChange: (next: ProjectDashboardSettings) => void;
   appOrigin: string;
-  /** Session window for the embed (10 / 30 / 60 seconds). */
   sessionTimelineSeconds: 10 | 30 | 60;
 };
 
-const tabTransition = { duration: 0.22, ease: [0.25, 0.1, 0.25, 1] as const };
+const TABS = [
+  { id: "general", label: "General", icon: Settings },
+  { id: "install", label: "Install", icon: Code2 },
+  { id: "appearance", label: "Appearance", icon: Paintbrush },
+  { id: "collection", label: "Collection", icon: Shield },
+  { id: "notifications", label: "Notifications", icon: Bell },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
 
 export function ProjectSettingsPanel({
   apiKey,
@@ -47,7 +55,7 @@ export function ProjectSettingsPanel({
   appOrigin,
   sessionTimelineSeconds,
 }: ProjectSettingsPanelProps) {
-  const [tab, setTab] = useState("general");
+  const [tab, setTab] = useState<TabId>("general");
   const [copied, setCopied] = useState<"api" | "script" | null>(null);
   const [minimalScript, setMinimalScript] = useState(false);
 
@@ -63,345 +71,312 @@ export function ProjectSettingsPanel({
       await navigator.clipboard.writeText(text);
       setCopied(kind);
       window.setTimeout(() => setCopied(null), 2000);
-    } catch {
-      setCopied(null);
-    }
+    } catch { setCopied(null); }
   };
 
   return (
-    <div className="space-y-6">
-      <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1.5 sm:grid-cols-4">
-          <TabsTrigger value="general" className="gap-2">
-            <Settings className="size-4 shrink-0 text-slate-500" aria-hidden />
-            General
-          </TabsTrigger>
-          <TabsTrigger value="appearance" className="gap-2">
-            <Paintbrush className="size-4 shrink-0 text-slate-500" aria-hidden />
-            Appearance
-          </TabsTrigger>
-          <TabsTrigger value="collection" className="gap-2">
-            <Shield className="size-4 shrink-0 text-slate-500" aria-hidden />
-            Collection
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="gap-2">
-            <Bell className="size-4 shrink-0 text-slate-500" aria-hidden />
-            Notifications
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+    <div className="flex flex-col gap-6 lg:flex-row">
+      {/* Sidebar nav */}
+      <nav className="flex shrink-0 gap-1 overflow-x-auto lg:w-48 lg:flex-col lg:overflow-visible">
+        {TABS.map((t) => {
+          const Icon = t.icon;
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={cn(
+                "flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-[0.8rem] font-medium transition-colors",
+                active
+                  ? "bg-zinc-100 text-zinc-900"
+                  : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800"
+              )}
+            >
+              <Icon className="size-3.5 shrink-0" />
+              {t.label}
+            </button>
+          );
+        })}
+      </nav>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={tab}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={tabTransition}
-          className="min-h-[320px]"
-        >
-          {tab === "general" && (
-            <div className="space-y-6">
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-                <h3 className="text-sm font-semibold text-slate-900">Project details</h3>
-                <p className="mt-1 text-xs text-slate-600">
-                  Identity and URL for this Whisper site.
-                </p>
-                <div className="mt-5 space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="ps-name" className="text-slate-700">
-                      Project name
-                    </Label>
+      {/* Content */}
+      <div className="min-w-0 flex-1">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+          >
+            {tab === "general" && (
+              <SettingsCard title="Project details" description="Identity and URL for this site.">
+                <div className="space-y-4">
+                  <Field label="Project name" htmlFor="ps-name">
                     <Input
                       id="ps-name"
                       value={settings.projectName}
                       onChange={(e) => patch({ projectName: e.target.value })}
-                      className="h-11 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400"
                       placeholder="My production app"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ps-url" className="text-slate-700">
-                      Website URL
-                    </Label>
+                  </Field>
+                  <Field label="Website URL" htmlFor="ps-url">
                     <Input
                       id="ps-url"
                       type="url"
                       value={settings.websiteUrl}
                       onChange={(e) => patch({ websiteUrl: e.target.value })}
-                      className="h-11 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400"
                       placeholder="https://app.example.com"
                     />
-                  </div>
+                  </Field>
+                  <Field label="Public API key" htmlFor="ps-api">
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 truncate rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-xs text-zinc-700">
+                        {apiKey}
+                      </code>
+                      <CopyBtn copied={copied === "api"} onClick={() => void copy("api", apiKey)} />
+                    </div>
+                  </Field>
                 </div>
-              </section>
+              </SettingsCard>
+            )}
 
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-                <h3 className="text-sm font-semibold text-slate-900">Public API key</h3>
-                <p className="mt-1 text-xs text-slate-600">
-                  Embed key — safe to expose in your frontend bundle.
-                </p>
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <code className="min-w-0 flex-1 truncate rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-xs text-cyan-700">
-                    {apiKey}
-                  </code>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 border-slate-200 text-slate-800 hover:bg-slate-50"
-                    onClick={() => void copy("api", apiKey)}
-                  >
-                    <Copy className="size-4" />
-                    {copied === "api" ? "Copied" : "Copy"}
-                  </Button>
-                </div>
-              </section>
-
-              <section className="overflow-hidden rounded-2xl border border-cyan-200/80 bg-gradient-to-b from-cyan-50/90 to-white p-5 sm:p-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-900">Installation code</h3>
-                    <p className="mt-1 max-w-xl text-xs text-slate-600">
-                      Paste before the closing <code className="text-slate-800">&lt;/body&gt;</code>.
-                      Updates live as you adjust Appearance &amp; Collection.
-                    </p>
-                  </div>
-                  <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+            {tab === "install" && (
+              <SettingsCard title="Installation snippet" description="Paste before the closing </body> tag.">
+                <div className="flex items-center justify-between gap-4">
+                  <label className="flex items-center gap-2 text-[0.78rem] text-zinc-600 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={minimalScript}
                       onChange={(e) => setMinimalScript(e.target.checked)}
-                      className="rounded border-slate-300 bg-white"
+                      className="rounded border-zinc-300"
                     />
-                    Minimal snippet only
+                    Minimal snippet
                   </label>
-                </div>
-                <div className="mt-4 flex justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="border-slate-200 text-slate-800 hover:bg-slate-50"
+                  <CopyBtn
+                    copied={copied === "script"}
                     onClick={() => void copy("script", scriptText)}
-                  >
-                    <Copy className="size-4" />
-                    {copied === "script" ? "Copied" : "Copy script"}
-                  </Button>
+                    label="Copy"
+                  />
                 </div>
-                <pre className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-slate-900 p-4 text-[0.7rem] leading-relaxed text-emerald-400/95 sm:text-xs">
+                <pre className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-zinc-950 p-4 text-[0.72rem] leading-relaxed text-emerald-400/90">
                   <code>{scriptText}</code>
                 </pre>
-              </section>
-            </div>
-          )}
+              </SettingsCard>
+            )}
 
-          {tab === "appearance" && (
-            <div className="space-y-6">
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-                <h3 className="text-sm font-semibold text-slate-900">Theme</h3>
-                <p className="mt-1 text-xs text-slate-600">Widget chrome and panel appearance.</p>
-                <RadioGroup
-                  value={settings.theme}
-                  onValueChange={(v) => patch({ theme: v as WidgetThemeMode })}
-                  className="mt-4 grid gap-3 sm:grid-cols-3"
-                >
-                  {(
-                    [
-                      { id: "light", label: "Light" },
-                      { id: "dark", label: "Dark" },
-                      { id: "system", label: "System" },
-                    ] as const
-                  ).map((opt) => (
-                    <label
-                      key={opt.id}
-                      htmlFor={`theme-${opt.id}`}
-                      className={cn(
-                        "flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
-                        settings.theme === opt.id
-                          ? "border-cyan-500/40 bg-cyan-50"
-                          : "border-slate-200 bg-slate-50/80 hover:border-slate-300"
-                      )}
-                    >
-                      <RadioGroupItem value={opt.id} id={`theme-${opt.id}`} />
-                      <span className="text-sm font-medium text-slate-900">{opt.label}</span>
-                    </label>
-                  ))}
-                </RadioGroup>
-              </section>
+            {tab === "appearance" && (
+              <div className="space-y-5">
+                <SettingsCard title="Theme" description="Widget chrome and panel appearance.">
+                  <RadioGroup
+                    value={settings.theme}
+                    onValueChange={(v) => patch({ theme: v as WidgetThemeMode })}
+                    className="grid gap-2 sm:grid-cols-3"
+                  >
+                    {(["light", "dark", "system"] as const).map((id) => (
+                      <label
+                        key={id}
+                        htmlFor={`theme-${id}`}
+                        className={cn(
+                          "flex cursor-pointer items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-[0.82rem] font-medium transition-colors",
+                          settings.theme === id
+                            ? "border-zinc-900 bg-zinc-50 text-zinc-900"
+                            : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                        )}
+                      >
+                        <RadioGroupItem value={id} id={`theme-${id}`} />
+                        {id.charAt(0).toUpperCase() + id.slice(1)}
+                      </label>
+                    ))}
+                  </RadioGroup>
+                </SettingsCard>
 
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-                <h3 className="text-sm font-semibold text-slate-900">Accent color</h3>
-                <p className="mt-1 text-xs text-slate-600">Primary color for the launcher and highlights.</p>
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                  {ACCENT_PRESETS.map((p) => (
-                    <button
-                      key={p.hex}
-                      type="button"
-                      title={p.label}
-                      onClick={() => patch({ accentColor: p.hex })}
-                      className={cn(
-                        "size-10 rounded-full ring-2 ring-offset-2 ring-offset-white transition-transform hover:scale-105",
-                        settings.accentColor.toLowerCase() === p.hex.toLowerCase()
-                          ? "ring-cyan-400"
-                          : "ring-transparent"
-                      )}
-                      style={{ backgroundColor: p.hex }}
-                    />
-                  ))}
-                </div>
-                <div className="mt-4 flex max-w-xs items-center gap-2">
-                  <span className="text-xs font-mono text-slate-500">#</span>
-                  <Input
-                    value={settings.accentColor.replace(/^#/, "")}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
-                      patch({ accentColor: raw ? `#${raw}` : "#" });
-                    }}
-                    className="h-10 border-slate-200 bg-slate-50 font-mono text-sm text-slate-900"
-                    placeholder="06b6d4"
-                  />
-                </div>
-              </section>
-
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-                <div className="grid gap-6 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="ps-position" className="text-slate-700">
-                      Position
-                    </Label>
-                    <select
-                      id="ps-position"
-                      value={settings.position}
-                      onChange={(e) =>
-                        patch({ position: e.target.value as WidgetPosition })
-                      }
-                      className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
-                    >
-                      <option value="bottom-right">Bottom right</option>
-                      <option value="bottom-left">Bottom left</option>
-                    </select>
+                <SettingsCard title="Accent color" description="Primary color for the launcher.">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {ACCENT_PRESETS.map((p) => (
+                      <button
+                        key={p.hex}
+                        type="button"
+                        title={p.label}
+                        onClick={() => patch({ accentColor: p.hex })}
+                        className={cn(
+                          "size-8 rounded-full ring-2 ring-offset-2 ring-offset-white transition-transform hover:scale-110",
+                          settings.accentColor.toLowerCase() === p.hex.toLowerCase()
+                            ? "ring-zinc-900"
+                            : "ring-transparent"
+                        )}
+                        style={{ backgroundColor: p.hex }}
+                      />
+                    ))}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ps-label" className="text-slate-700">
-                      Widget label
-                    </Label>
+                  <div className="mt-3 flex max-w-[200px] items-center gap-1.5">
+                    <span className="text-xs font-mono text-zinc-400">#</span>
                     <Input
-                      id="ps-label"
-                      value={settings.widgetLabel}
-                      onChange={(e) => patch({ widgetLabel: e.target.value })}
-                      className="h-11 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400"
-                      placeholder="Send Feedback"
+                      value={settings.accentColor.replace(/^#/, "")}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
+                        patch({ accentColor: raw ? `#${raw}` : "#" });
+                      }}
+                      className="h-8 font-mono text-xs"
+                      placeholder="06b6d4"
                     />
                   </div>
-                </div>
-              </section>
-            </div>
-          )}
+                </SettingsCard>
 
-          {tab === "collection" && (
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-              <div className="flex items-start gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50">
-                  <Shield className="size-5 text-cyan-600" aria-hidden />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Ingestion engine</h3>
-                  <p className="mt-1 text-xs text-slate-600">
-                    Control what technical context Whisper attaches to each report.
-                  </p>
-                </div>
+                <SettingsCard title="Layout" description="Widget position and label.">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Position" htmlFor="ps-position">
+                      <select
+                        id="ps-position"
+                        value={settings.position}
+                        onChange={(e) => patch({ position: e.target.value as WidgetPosition })}
+                        className="h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 text-[0.82rem] text-zinc-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                      >
+                        <option value="bottom-right">Bottom right</option>
+                        <option value="bottom-left">Bottom left</option>
+                      </select>
+                    </Field>
+                    <Field label="Widget label" htmlFor="ps-label">
+                      <Input
+                        id="ps-label"
+                        value={settings.widgetLabel}
+                        onChange={(e) => patch({ widgetLabel: e.target.value })}
+                        placeholder="Send Feedback"
+                        className="h-9"
+                      />
+                    </Field>
+                  </div>
+                </SettingsCard>
               </div>
-              <div className="mt-6 space-y-5 border-t border-slate-200 pt-6">
-                <ConfigRow
-                  id="cap-console"
-                  label="Console logs"
-                  description="Capture browser console output with each report."
-                  checked={settings.captureConsole}
-                  onCheckedChange={(v) => patch({ captureConsole: v })}
-                />
-                <ConfigRow
-                  id="cap-net-fail"
-                  label="Network requests"
-                  description="Capture failed API calls (HTTP 4xx / 5xx)."
-                  checked={settings.captureNetworkFailuresOnly}
-                  onCheckedChange={(v) => patch({ captureNetworkFailuresOnly: v })}
-                />
-                <ConfigRow
-                  id="cap-session"
-                  label="Session timeline"
-                  description="Record the last ~30s of clicks and scrolls for replay."
-                  checked={settings.sessionTimelineEnabled}
-                  onCheckedChange={(v) => patch({ sessionTimelineEnabled: v })}
-                />
-                <ConfigRow
-                  id="cap-device"
-                  label="Device metadata"
-                  description="Browser, OS, viewport, and screen size."
-                  checked={settings.captureDeviceMetadata}
-                  onCheckedChange={(v) => patch({ captureDeviceMetadata: v })}
-                />
-              </div>
-            </section>
-          )}
+            )}
 
-          {tab === "notifications" && (
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-              <h3 className="text-sm font-semibold text-slate-900">Alert destinations</h3>
-              <p className="mt-1 text-xs text-slate-600">
-                Where Whisper should send new issue notifications (mock — connect API later).
-              </p>
-              <div className="mt-6 space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="ps-email" className="flex items-center gap-2 text-slate-700">
-                    <Mail className="size-3.5 text-slate-500" aria-hidden />
-                    Email alerts
-                  </Label>
-                  <Input
-                    id="ps-email"
-                    type="email"
-                    value={settings.alertEmail}
-                    onChange={(e) => patch({ alertEmail: e.target.value })}
-                    className="h-11 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400"
-                    placeholder="team@company.com"
+            {tab === "collection" && (
+              <SettingsCard title="Data collection" description="Control what context Whisper attaches to each report.">
+                <div className="space-y-1 divide-y divide-zinc-100">
+                  <ToggleRow
+                    id="cap-console"
+                    label="Console logs"
+                    description="Capture browser console output."
+                    checked={settings.captureConsole}
+                    onCheckedChange={(v) => patch({ captureConsole: v })}
+                  />
+                  <ToggleRow
+                    id="cap-net-fail"
+                    label="Network failures"
+                    description="Capture failed API calls (4xx / 5xx)."
+                    checked={settings.captureNetworkFailuresOnly}
+                    onCheckedChange={(v) => patch({ captureNetworkFailuresOnly: v })}
+                  />
+                  <ToggleRow
+                    id="cap-session"
+                    label="Session timeline"
+                    description="Record the last ~30s of clicks and scrolls."
+                    checked={settings.sessionTimelineEnabled}
+                    onCheckedChange={(v) => patch({ sessionTimelineEnabled: v })}
+                  />
+                  <ToggleRow
+                    id="cap-device"
+                    label="Device metadata"
+                    description="Browser, OS, viewport, and screen size."
+                    checked={settings.captureDeviceMetadata}
+                    onCheckedChange={(v) => patch({ captureDeviceMetadata: v })}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ps-slack" className="flex items-center gap-2 text-slate-700">
-                    <Webhook className="size-3.5 text-slate-500" aria-hidden />
-                    Slack webhook URL
-                  </Label>
-                  <Input
-                    id="ps-slack"
-                    value={settings.slackWebhookUrl}
-                    onChange={(e) => patch({ slackWebhookUrl: e.target.value })}
-                    className="h-11 border-slate-200 bg-slate-50 font-mono text-xs text-slate-900 placeholder:text-slate-400"
-                    placeholder="https://hooks.slack.com/services/…"
-                  />
+              </SettingsCard>
+            )}
+
+            {tab === "notifications" && (
+              <SettingsCard title="Alert destinations" description="Where to send new issue notifications.">
+                <div className="space-y-4">
+                  <Field
+                    label={<span className="flex items-center gap-1.5"><Mail className="size-3 text-zinc-400" />Email alerts</span>}
+                    htmlFor="ps-email"
+                  >
+                    <Input
+                      id="ps-email"
+                      type="email"
+                      value={settings.alertEmail}
+                      onChange={(e) => patch({ alertEmail: e.target.value })}
+                      placeholder="team@company.com"
+                    />
+                  </Field>
+                  <Field
+                    label={<span className="flex items-center gap-1.5"><Webhook className="size-3 text-zinc-400" />Slack webhook</span>}
+                    htmlFor="ps-slack"
+                  >
+                    <Input
+                      id="ps-slack"
+                      value={settings.slackWebhookUrl}
+                      onChange={(e) => patch({ slackWebhookUrl: e.target.value })}
+                      className="font-mono text-xs"
+                      placeholder="https://hooks.slack.com/services/…"
+                    />
+                  </Field>
+                  <Field
+                    label={<span className="flex items-center gap-1.5"><MessageCircle className="size-3 text-indigo-400" />Discord webhook</span>}
+                    htmlFor="ps-discord"
+                  >
+                    <Input
+                      id="ps-discord"
+                      value={settings.discordWebhookUrl}
+                      onChange={(e) => patch({ discordWebhookUrl: e.target.value })}
+                      className="font-mono text-xs"
+                      placeholder="https://discord.com/api/webhooks/…"
+                    />
+                  </Field>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ps-discord" className="flex items-center gap-2 text-slate-700">
-                    <MessageCircle className="size-3.5 text-indigo-500" aria-hidden />
-                    Discord webhook URL
-                  </Label>
-                  <Input
-                    id="ps-discord"
-                    value={settings.discordWebhookUrl}
-                    onChange={(e) => patch({ discordWebhookUrl: e.target.value })}
-                    className="h-11 border-slate-200 bg-slate-50 font-mono text-xs text-slate-900 placeholder:text-slate-400"
-                    placeholder="https://discord.com/api/webhooks/…"
-                  />
-                </div>
-              </div>
-            </section>
-          )}
-        </motion.div>
-      </AnimatePresence>
+              </SettingsCard>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
 
-function ConfigRow({
+/* ───── Small reusable primitives ───── */
+
+function SettingsCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+      <div className="border-b border-zinc-100 px-5 py-4">
+        <h3 className="text-[0.88rem] font-semibold text-zinc-900">{title}</h3>
+        <p className="mt-0.5 text-[0.78rem] text-zinc-500">{description}</p>
+      </div>
+      <div className="px-5 py-4">{children}</div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: React.ReactNode;
+  htmlFor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={htmlFor} className="text-[0.78rem] text-zinc-600">
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+function ToggleRow({
   id,
   label,
   description,
@@ -415,19 +390,35 @@ function ConfigRow({
   onCheckedChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="min-w-0 space-y-0.5">
-        <Label htmlFor={id} className="cursor-pointer text-slate-900">
-          {label}
-        </Label>
-        <p className="text-xs text-slate-600">{description}</p>
+    <div className="flex items-center justify-between gap-4 py-3">
+      <div className="min-w-0">
+        <Label htmlFor={id} className="cursor-pointer text-[0.82rem] text-zinc-900">{label}</Label>
+        <p className="text-[0.75rem] text-zinc-500">{description}</p>
       </div>
-      <Switch
-        id={id}
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        className="focus-visible:ring-offset-white"
-      />
+      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
     </div>
+  );
+}
+
+function CopyBtn({
+  copied,
+  onClick,
+  label,
+}: {
+  copied: boolean;
+  onClick: () => void;
+  label?: string;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="h-8 shrink-0 gap-1.5 border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+      onClick={onClick}
+    >
+      {copied ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
+      {label ?? (copied ? "Copied" : "Copy")}
+    </Button>
   );
 }
