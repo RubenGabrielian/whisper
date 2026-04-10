@@ -34,6 +34,12 @@ export default async function DashboardPage() {
               <span className="rounded-md bg-zinc-100 px-2.5 py-1 text-[0.8rem] font-medium text-zinc-900">
                 Projects
               </span>
+              <Link
+                href="/dashboard/reports"
+                className="rounded-md px-2.5 py-1 text-[0.8rem] font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+              >
+                Reports
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-3">

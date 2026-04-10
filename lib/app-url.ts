@@ -4,6 +4,18 @@ import { headers } from "next/headers";
  * Public origin for this deployment (used in install snippets, emails, etc.).
  * Prefer `NEXT_PUBLIC_APP_URL`; otherwise derive from the incoming request.
  */
+export function getAppOriginFromRequest(req: Request): string {
+  const env = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (env) return env.replace(/\/$/, "");
+
+  try {
+    const url = new URL(req.url);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return "http://localhost:3000";
+  }
+}
+
 export function getAppOriginFromHeaders(): string {
   const env = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (env) return env.replace(/\/$/, "");

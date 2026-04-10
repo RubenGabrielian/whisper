@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import { parseFeedbackPayload } from "@/lib/api/feedback-payload";
-import {
-  buildFeedbackReportHtml,
-  widgetFeedbackEmailSubject,
-} from "@/lib/email/feedback-report-html";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
+import { insertReportAndSendSummaryEmail } from "@/lib/reports/store-and-notify";
+import { getAppOriginFromRequest } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -147,17 +144,32 @@ export async function POST(req: Request) {
 
   const from =
     process.env.RESEND_FROM?.trim() || "Whybug <onboarding@resend.dev>";
-  const iconBaseUrl = process.env.EMAIL_ICON_BASE_URL?.trim() || null;
   const replyTo = process.env.FEEDBACK_REPLY_TO?.trim();
+  const appOrigin = getAppOriginFromRequest(req);
 
   const projectName = typeof project.name === "string" ? project.name : "";
-  const html = buildFeedbackReportHtml({
-    ...parsed,
-    iconBaseUrl,
-  });
-  const subject = widgetFeedbackEmailSubject(projectName, parsed.message);
+  const projectRow = {
+    id: project.id as string,
+    name: projectName,
+    owner_email: owner,
+  };
 
   try {
+    const storeResult = await insertReportAndSendSummaryEmail({
+      supabase,
+      parsed,
+      project: projectRow,
+      notifyTo: to,
+      appOrigin,
+      resendApiKey: resendKey,
+      resendFrom: from,
+      ...(replyTo ? { replyTo } : {}),
+    });
+
+    if (!storeResult.ok) {
+      return corsJson({ error: storeResult.error || "Could not save report" }, 500);
+    }
+
     // Slack is best-effort: don't fail the request if webhook fails.
     let slackSent = false;
     const slackUrl =
@@ -166,7 +178,6 @@ export async function POST(req: Request) {
         : "";
     if (slackUrl && looksLikeSlackWebhook(slackUrl)) {
       try {
-        // Await so serverless doesn't exit early before the request is sent.
         await sendSlackWebhook({
           webhookUrl: slackUrl,
           projectName,
@@ -181,21 +192,15 @@ export async function POST(req: Request) {
       }
     }
 
-    const resend = new Resend(resendKey);
-    const { data, error } = await resend.emails.send({
-      from,
-      to: [to],
-      subject,
-      html,
-      ...(replyTo ? { replyTo } : {}),
+    return corsJson({
+      ok: true,
+      reportId: storeResult.reportId,
+      emailSent: storeResult.emailSent,
+      ...(storeResult.emailSent
+        ? { resendEmailId: storeResult.resendEmailId }
+        : { emailError: storeResult.emailError }),
+      slackSent,
     });
-
-    if (error) {
-      console.error("[widget/feedback] Resend error:", error);
-      return corsJson({ error: error.message || "Email send failed" }, 502);
-    }
-
-    return corsJson({ ok: true, id: data?.id ?? null, slackSent });
   } catch (e) {
     console.error("[widget/feedback]", e);
     return corsJson(

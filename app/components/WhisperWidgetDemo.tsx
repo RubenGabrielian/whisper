@@ -151,27 +151,227 @@ function describeInput(target: HTMLInputElement | HTMLTextAreaElement): string {
 const uid = () => Math.random().toString(36).slice(2, 11);
 
 /* ═══════════════════════════════════════════════════════════════════
-   MOCK RECEIPT DATA
+   LIVE CAPTURE TYPES
 ═══════════════════════════════════════════════════════════════════ */
-const MOCK_CONSOLE: { level: LogLevel; text: string }[] = [
-  { level: "warn", text: "Stripe.js not initialized — checkout may fail" },
-  { level: "error", text: "TypeError: Cannot read properties of undefined (reading 'id')" },
-  { level: "log", text: "Auth token refreshed (exp +3600s)" },
-];
+interface CapturedConsoleEntry {
+  level: LogLevel;
+  text: string;
+  timestamp: number;
+}
 
-/** Includes a prominent 500 for the “aha” demo */
-const MOCK_NETWORK = [
-  { method: "POST" as const, path: "/api/checkout/session", status: 422, ms: "1 240", highlight: false },
-  { method: "GET" as const, path: "/api/user/me", status: 200, ms: "81", highlight: false },
-  {
-    method: "PUT" as const,
-    path: "/api/cart",
-    status: 500,
-    ms: "2 910",
-    highlight: true,
-    errorLabel: "500 Internal Server Error",
-  },
-] as const;
+interface CapturedNetworkEntry {
+  method: string;
+  url: string;
+  path: string;
+  status: number;
+  durationMs: number;
+  ok: boolean;
+  error?: string;
+  timestamp: number;
+}
+
+const MAX_CONSOLE_ENTRIES = 50;
+const MAX_NETWORK_ENTRIES = 20;
+
+/* ═══════════════════════════════════════════════════════════════════
+   REAL CONSOLE INTERCEPTOR
+   Overrides console.log/warn/error, preserves original behavior,
+   stores last 50 entries in a rolling buffer.
+═══════════════════════════════════════════════════════════════════ */
+function useConsoleTracker() {
+  const entriesRef = useRef<CapturedConsoleEntry[]>([]);
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    const origLog = console.log.bind(console);
+    const origWarn = console.warn.bind(console);
+    const origError = console.error.bind(console);
+
+    function capture(level: LogLevel, args: unknown[]) {
+      const text = args
+        .map((a) => {
+          if (typeof a === "string") return a;
+          try { return JSON.stringify(a); } catch { return String(a); }
+        })
+        .join(" ")
+        .slice(0, 500);
+
+      if (!text.trim()) return;
+
+      // Skip our own widget internals
+      if (text.includes("[whisper-widget]") || text.includes("[whybug-widget]")) return;
+
+      entriesRef.current.push({ level, text, timestamp: Date.now() });
+      if (entriesRef.current.length > MAX_CONSOLE_ENTRIES) {
+        entriesRef.current = entriesRef.current.slice(-MAX_CONSOLE_ENTRIES);
+      }
+    }
+
+    console.log = (...args: unknown[]) => { capture("log", args); origLog(...args); };
+    console.warn = (...args: unknown[]) => { capture("warn", args); origWarn(...args); };
+    console.error = (...args: unknown[]) => { capture("error", args); origError(...args); };
+
+    // Capture unhandled errors
+    const onError = (ev: ErrorEvent) => {
+      capture("error", [`${ev.message} (${ev.filename}:${ev.lineno})`]);
+    };
+    const onRejection = (ev: PromiseRejectionEvent) => {
+      const reason = ev.reason instanceof Error ? ev.reason.message : String(ev.reason ?? "Unhandled promise rejection");
+      capture("error", [reason]);
+    };
+
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+
+    return () => {
+      console.log = origLog;
+      console.warn = origWarn;
+      console.error = origError;
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }, []);
+
+  /** Snapshot current buffer (returns a copy) */
+  const snapshot = useCallback(() => [...entriesRef.current], []);
+
+  return { snapshot, entriesRef };
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   REAL NETWORK INTERCEPTOR
+   Monkey-patches fetch + XMLHttpRequest, captures requests with
+   status >= 400 or errors. Stores last 20 entries.
+═══════════════════════════════════════════════════════════════════ */
+function useNetworkTracker() {
+  const entriesRef = useRef<CapturedNetworkEntry[]>([]);
+
+  useEffect(() => {
+    function pushEntry(entry: CapturedNetworkEntry) {
+      entriesRef.current.push(entry);
+      if (entriesRef.current.length > MAX_NETWORK_ENTRIES) {
+        entriesRef.current = entriesRef.current.slice(-MAX_NETWORK_ENTRIES);
+      }
+    }
+
+    function extractPath(urlStr: string): string {
+      try {
+        const u = new URL(urlStr, window.location.origin);
+        return `${u.pathname}${u.search}`;
+      } catch { return urlStr; }
+    }
+
+    // ── Patch fetch ──
+    const origFetch = window.fetch;
+    window.fetch = async function patchedFetch(input: RequestInfo | URL, init?: RequestInit) {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const urlStr = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const startMs = Date.now();
+
+      try {
+        const response = await origFetch.apply(this, [input, init] as Parameters<typeof origFetch>);
+        const durationMs = Date.now() - startMs;
+        const status = response.status;
+
+        // Always capture — we show all requests in the receipt
+        pushEntry({
+          method,
+          url: urlStr,
+          path: extractPath(urlStr),
+          status,
+          durationMs,
+          ok: response.ok,
+          ...(status >= 400 ? { error: `${status} ${response.statusText || "Error"}` } : {}),
+          timestamp: Date.now(),
+        });
+
+        return response;
+      } catch (err) {
+        pushEntry({
+          method,
+          url: urlStr,
+          path: extractPath(urlStr),
+          status: 0,
+          durationMs: Date.now() - startMs,
+          ok: false,
+          error: err instanceof Error ? err.message : "Network error",
+          timestamp: Date.now(),
+        });
+        throw err;
+      }
+    };
+
+    // ── Patch XMLHttpRequest ──
+    const origOpen = XMLHttpRequest.prototype.open;
+    const origSend = XMLHttpRequest.prototype.send;
+
+    XMLHttpRequest.prototype.open = function (this: XMLHttpRequest & { __wb_method?: string; __wb_url?: string }, method: string, url: string | URL, ...rest: unknown[]) {
+      this.__wb_method = method.toUpperCase();
+      this.__wb_url = typeof url === "string" ? url : url.href;
+      return (origOpen as Function).call(this, method, url, ...rest);
+    };
+
+    XMLHttpRequest.prototype.send = function (this: XMLHttpRequest & { __wb_method?: string; __wb_url?: string; __wb_start?: number }, body?: Document | XMLHttpRequestBodyInit | null) {
+      this.__wb_start = Date.now();
+      const method = this.__wb_method || "GET";
+      const url = this.__wb_url || "";
+
+      const onDone = () => {
+        const durationMs = Date.now() - (this.__wb_start || Date.now());
+        const status = this.status || 0;
+        pushEntry({
+          method,
+          url,
+          path: extractPath(url),
+          status,
+          durationMs,
+          ok: status >= 200 && status < 400,
+          ...(status >= 400 || status === 0 ? { error: `${status} ${this.statusText || "Error"}` } : {}),
+          timestamp: Date.now(),
+        });
+      };
+
+      this.addEventListener("load", onDone);
+      this.addEventListener("error", () => {
+        pushEntry({
+          method,
+          url,
+          path: extractPath(url),
+          status: 0,
+          durationMs: Date.now() - (this.__wb_start || Date.now()),
+          ok: false,
+          error: "Network error (XHR)",
+          timestamp: Date.now(),
+        });
+      });
+      this.addEventListener("timeout", () => {
+        pushEntry({
+          method,
+          url,
+          path: extractPath(url),
+          status: 0,
+          durationMs: Date.now() - (this.__wb_start || Date.now()),
+          ok: false,
+          error: "Request timeout (XHR)",
+          timestamp: Date.now(),
+        });
+      });
+
+      return origSend.call(this, body);
+    };
+
+    return () => {
+      window.fetch = origFetch;
+      XMLHttpRequest.prototype.open = origOpen;
+      XMLHttpRequest.prototype.send = origSend;
+    };
+  }, []);
+
+  /** Snapshot current buffer (returns a copy) */
+  const snapshot = useCallback(() => [...entriesRef.current], []);
+
+  return { snapshot, entriesRef };
+}
 
 const EVENT_CFG: Record<
   EventType,
@@ -682,6 +882,8 @@ function ReceiptStage({
   message,
   ctx,
   events,
+  consoleLogs,
+  networkLogs,
   receiptTs,
   onReset,
   onClose,
@@ -689,6 +891,8 @@ function ReceiptStage({
   message: string;
   ctx: FeedbackContext;
   events: SessionEvent[];
+  consoleLogs: CapturedConsoleEntry[];
+  networkLogs: CapturedNetworkEntry[];
   receiptTs: number;
   onReset: () => void;
   onClose: () => void;
@@ -703,10 +907,12 @@ function ReceiptStage({
   };
 
   const envString = `${ctx.browser || "Browser"} on ${ctx.os || "Unknown"} \u00B7 ${ctx.screenResolution || "?"}`;
-  const hasConsole = MOCK_CONSOLE.length > 0;
-  const hasNetwork = MOCK_NETWORK.length > 0;
-  const errorCount = MOCK_CONSOLE.filter(e => e.level === "error").length;
-  const failedReqs = MOCK_NETWORK.filter(r => r.status >= 400).length;
+  const sortedConsole = [...consoleLogs].sort((a, b) => b.timestamp - a.timestamp);
+  const sortedNetwork = [...networkLogs].sort((a, b) => b.timestamp - a.timestamp);
+  const hasConsole = sortedConsole.length > 0;
+  const hasNetwork = sortedNetwork.length > 0;
+  const errorCount = sortedConsole.filter(e => e.level === "error").length;
+  const failedReqs = sortedNetwork.filter(r => r.status >= 400 || !r.ok).length;
 
   return (
     <motion.div
@@ -802,7 +1008,7 @@ function ReceiptStage({
             <TerminalBlock
               title="Console"
               icon={Activity}
-              badge={hasConsole ? `${errorCount} error${errorCount !== 1 ? "s" : ""} \u00B7 ${MOCK_CONSOLE.length} total` : undefined}
+              badge={hasConsole ? `${errorCount} error${errorCount !== 1 ? "s" : ""} \u00B7 ${sortedConsole.length} total` : undefined}
               badgeColor={errorCount > 0 ? "text-red-400" : "text-zinc-500"}
               delay={0.2}
             >
@@ -812,9 +1018,9 @@ function ReceiptStage({
                   animate="show"
                   variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06, delayChildren: 0.25 } } }}
                 >
-                  {MOCK_CONSOLE.map((entry, i) => (
+                  {sortedConsole.map((entry, i) => (
                     <motion.div
-                      key={i}
+                      key={`${entry.timestamp}-${i}`}
                       variants={{ hidden: { opacity: 0, x: -6 }, show: { opacity: 1, x: 0, transition: { duration: 0.3 } } }}
                       className={`flex items-start gap-2 px-3 py-2 font-mono text-[0.66rem] ${
                         i !== 0 ? "border-t border-zinc-800/60" : ""
@@ -846,7 +1052,7 @@ function ReceiptStage({
             <TerminalBlock
               title="Network"
               icon={Wifi}
-              badge={hasNetwork ? `${failedReqs} failed \u00B7 ${MOCK_NETWORK.length} req` : undefined}
+              badge={hasNetwork ? `${failedReqs} failed \u00B7 ${sortedNetwork.length} req` : undefined}
               badgeColor={failedReqs > 0 ? "text-red-400" : "text-emerald-400"}
               delay={0.35}
             >
@@ -864,41 +1070,47 @@ function ReceiptStage({
                     animate="show"
                     variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.4 } } }}
                   >
-                    {MOCK_NETWORK.map((req, i) => (
-                      <motion.div
-                        key={i}
-                        variants={{ hidden: { opacity: 0, x: -6 }, show: { opacity: 1, x: 0, transition: { duration: 0.3 } } }}
-                        className={`${req.highlight ? "bg-red-500/[0.05] border-l-2 border-l-red-500" : "border-l-2 border-l-transparent"} ${
-                          i !== 0 ? "border-t border-zinc-800/50" : ""
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 px-3 py-2 font-mono text-[0.64rem]">
-                          <span className={`shrink-0 font-bold w-8 text-[0.6rem] ${
-                            req.method === "GET" ? "text-blue-400" : req.method === "POST" ? "text-emerald-400" : "text-amber-400"
-                          }`}>
-                            {req.method}
-                          </span>
-                          <span className="text-zinc-400 flex-1 min-w-0 truncate">{req.path}</span>
-                          <span className={`shrink-0 font-bold text-[0.62rem] w-8 text-center px-1 py-[1px] border ${
-                            req.status >= 500
-                              ? "text-red-400 border-red-900/60 bg-red-500/10"
-                              : req.status >= 400
-                                ? "text-amber-400 border-amber-900/50 bg-amber-500/10"
-                                : "text-emerald-400 border-emerald-900/40 bg-emerald-500/10"
-                          }`}>
-                            {req.status}
-                          </span>
-                          <span className="shrink-0 text-zinc-600 w-12 text-right text-[0.58rem]">{req.ms}ms</span>
-                        </div>
-                        {"highlight" in req && req.highlight && "errorLabel" in req && (
-                          <div className="flex items-center gap-1.5 text-[0.58rem] text-red-400/90 px-3 pb-2 pl-[2.75rem]">
-                            <AlertTriangle size={10} className="shrink-0" />
-                            <span className="font-bold">{req.errorLabel}</span>
-                            <span className="text-zinc-600">&mdash; likely root cause</span>
+                    {sortedNetwork.map((req, i) => {
+                      const isFailed = !req.ok || req.status >= 400;
+                      return (
+                        <motion.div
+                          key={`${req.timestamp}-${i}`}
+                          variants={{ hidden: { opacity: 0, x: -6 }, show: { opacity: 1, x: 0, transition: { duration: 0.3 } } }}
+                          className={`${isFailed ? "bg-red-500/[0.05] border-l-2 border-l-red-500" : "border-l-2 border-l-transparent"} ${
+                            i !== 0 ? "border-t border-zinc-800/50" : ""
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 px-3 py-2 font-mono text-[0.64rem]">
+                            <span className={`shrink-0 font-bold w-8 text-[0.6rem] ${
+                              req.method === "GET" ? "text-blue-400"
+                                : req.method === "POST" ? "text-emerald-400"
+                                : req.method === "DELETE" ? "text-red-400"
+                                : "text-amber-400"
+                            }`}>
+                              {req.method}
+                            </span>
+                            <span className="text-zinc-400 flex-1 min-w-0 truncate">{req.path}</span>
+                            <span className={`shrink-0 font-bold text-[0.62rem] w-8 text-center px-1 py-[1px] border ${
+                              req.status >= 500
+                                ? "text-red-400 border-red-900/60 bg-red-500/10"
+                                : req.status >= 400
+                                  ? "text-amber-400 border-amber-900/50 bg-amber-500/10"
+                                  : "text-emerald-400 border-emerald-900/40 bg-emerald-500/10"
+                            }`}>
+                              {req.status || "ERR"}
+                            </span>
+                            <span className="shrink-0 text-zinc-600 w-12 text-right text-[0.58rem]">{req.durationMs}ms</span>
                           </div>
-                        )}
-                      </motion.div>
-                    ))}
+                          {isFailed && req.error && (
+                            <div className="flex items-center gap-1.5 text-[0.58rem] text-red-400/90 px-3 pb-2 pl-[2.75rem]">
+                              <AlertTriangle size={10} className="shrink-0" />
+                              <span className="font-bold">{req.error}</span>
+                              <span className="text-zinc-600">&mdash; likely root cause</span>
+                            </div>
+                          )}
+                        </motion.div>
+                      );
+                    })}
                   </motion.div>
                 </>
               ) : (
@@ -989,12 +1201,16 @@ function ReceiptStage({
 export default function WhisperWidgetDemo() {
   const prefersReduced = useReducedMotion();
   const sessionEvents = useSessionTracker();
+  const { snapshot: snapshotConsole } = useConsoleTracker();
+  const { snapshot: snapshotNetwork } = useNetworkTracker();
 
   const [stage, setStage] = useState<Stage>("closed");
   const [message, setMessage] = useState("");
   const [stepIdx, setStepIdx] = useState(0);
   const [receiptTs, setReceiptTs] = useState(0);
   const [snapEvents, setSnapEvents] = useState<SessionEvent[]>([]);
+  const [snapConsole, setSnapConsole] = useState<CapturedConsoleEntry[]>([]);
+  const [snapNetwork, setSnapNetwork] = useState<CapturedNetworkEntry[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const clientEnv = useClientEnvironment();
@@ -1025,6 +1241,20 @@ export default function WhisperWidgetDemo() {
             context: ctx,
             events: snapEvents,
             receiptAt,
+            console: snapConsole.map((e) => ({
+              level: e.level,
+              text: e.text,
+              timestamp: e.timestamp,
+            })),
+            network: snapNetwork.map((n) => ({
+              method: n.method,
+              url: n.url,
+              status: n.status,
+              durationMs: n.durationMs,
+              ok: n.ok,
+              ...(n.error ? { error: n.error } : {}),
+              timestamp: n.timestamp,
+            })),
           }),
           signal: ac.signal,
         });
@@ -1062,7 +1292,7 @@ export default function WhisperWidgetDemo() {
       ac.abort();
       clearInterval(stepTimer);
     };
-  }, [stage, ctx, message, snapEvents]);
+  }, [stage, ctx, message, snapEvents, snapConsole, snapNetwork]);
 
   const open = useCallback(() => {
     setSubmitError(null);
@@ -1078,9 +1308,11 @@ export default function WhisperWidgetDemo() {
   }, []);
   const submit = useCallback(() => {
     setSnapEvents([...sessionEvents]);
+    setSnapConsole(snapshotConsole());
+    setSnapNetwork(snapshotNetwork());
     setSubmitError(null);
     setStage("submitting");
-  }, [sessionEvents]);
+  }, [sessionEvents, snapshotConsole, snapshotNetwork]);
   const reset = useCallback(() => {
     setMessage("");
     setStepIdx(0);
@@ -1224,6 +1456,8 @@ export default function WhisperWidgetDemo() {
                   message={message}
                   ctx={ctx}
                   events={snapEvents}
+                  consoleLogs={snapConsole}
+                  networkLogs={snapNetwork}
                   receiptTs={receiptTs}
                   onReset={reset}
                   onClose={close}
