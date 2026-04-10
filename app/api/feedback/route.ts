@@ -7,12 +7,13 @@ import {
 } from "@/lib/email/feedback-report-html";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { insertReportAndSendSummaryEmail } from "@/lib/reports/store-and-notify";
+import { resolveProjectForLandingFeedback } from "@/lib/reports/resolve-project";
 import { getAppOriginFromRequest } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const projectId = process.env.FEEDBACK_PROJECT_ID?.trim();
+  const explicitProjectId = process.env.FEEDBACK_PROJECT_ID?.trim() || null;
   const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.FEEDBACK_TO_EMAIL;
 
@@ -48,68 +49,72 @@ export async function POST(req: Request) {
   const replyTo = process.env.FEEDBACK_REPLY_TO?.trim();
   const appOrigin = getAppOriginFromRequest(req);
 
-  /* ── With FEEDBACK_PROJECT_ID: store report + summary email (dashboard link) ── */
-  if (projectId) {
-    let supabase;
-    try {
-      supabase = createServiceRoleClient();
-    } catch {
+  /* ── Try Supabase: store report + summary email (same as widget flow) ── */
+  let supabase;
+  try {
+    supabase = createServiceRoleClient();
+  } catch {
+    supabase = null;
+  }
+
+  if (supabase) {
+    const resolved = await resolveProjectForLandingFeedback(supabase, {
+      feedbackToEmail: to,
+      explicitProjectId,
+    });
+
+    if ("project" in resolved) {
+      const storeResult = await insertReportAndSendSummaryEmail({
+        supabase,
+        parsed,
+        project: resolved.project,
+        notifyTo: to,
+        appOrigin,
+        resendApiKey: apiKey,
+        resendFrom: from,
+        ...(replyTo ? { replyTo } : {}),
+      });
+
+      if (!storeResult.ok) {
+        return NextResponse.json(
+          {
+            error: storeResult.error || "Could not save report",
+            ...(process.env.NODE_ENV === "development" && {
+              hint: "Check Supabase for the reports table and service role key.",
+            }),
+          },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        ok: true,
+        reportId: storeResult.reportId,
+        emailSent: storeResult.emailSent,
+        ...(storeResult.emailSent
+          ? { resendEmailId: storeResult.resendEmailId }
+          : { emailError: storeResult.emailError }),
+      });
+    }
+
+    /* Resolved error: no project — fall through to legacy email only if configured */
+    const allowLegacy =
+      process.env.FEEDBACK_EMAIL_WITHOUT_PROJECT === "1" ||
+      process.env.FEEDBACK_EMAIL_WITHOUT_PROJECT === "true";
+
+    if (!allowLegacy) {
       return NextResponse.json(
-        { error: "Server misconfigured (Supabase service role)." },
+        {
+          error: resolved.error,
+          hint:
+            "Create a Whybug project while signed in with the same address as FEEDBACK_TO_EMAIL, or set FEEDBACK_PROJECT_ID. To allow full HTML emails without saving reports, set FEEDBACK_EMAIL_WITHOUT_PROJECT=true.",
+        },
         { status: 503 }
       );
     }
-
-    const { data: project, error: qErr } = await supabase
-      .from("projects")
-      .select("id, name, owner_email")
-      .eq("id", projectId)
-      .maybeSingle();
-
-    if (qErr) {
-      console.error("[feedback] project", qErr);
-      return NextResponse.json({ error: "Could not load project" }, { status: 500 });
-    }
-    if (!project) {
-      return NextResponse.json(
-        { error: "FEEDBACK_PROJECT_ID does not match any project." },
-        { status: 400 }
-      );
-    }
-
-    const storeResult = await insertReportAndSendSummaryEmail({
-      supabase,
-      parsed,
-      project: {
-        id: project.id as string,
-        name: typeof project.name === "string" ? project.name : "",
-        owner_email: typeof project.owner_email === "string" ? project.owner_email : "",
-      },
-      notifyTo: to,
-      appOrigin,
-      resendApiKey: apiKey,
-      resendFrom: from,
-      ...(replyTo ? { replyTo } : {}),
-    });
-
-    if (!storeResult.ok) {
-      return NextResponse.json(
-        { error: storeResult.error || "Could not save report" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      ok: true,
-      reportId: storeResult.reportId,
-      emailSent: storeResult.emailSent,
-      ...(storeResult.emailSent
-        ? { resendEmailId: storeResult.resendEmailId }
-        : { emailError: storeResult.emailError }),
-    });
   }
 
-  /* ── Legacy: full HTML email only (no project / no DB row) ── */
+  /* ── Legacy: full HTML email only (no DB) — missing Supabase or explicit opt-in with no project ── */
   const html = buildFeedbackReportHtml({
     ...parsed,
     iconBaseUrl,

@@ -48,10 +48,19 @@ export async function insertReportAndSendSummaryEmail(params: {
     .single();
 
   if (insErr || !inserted?.id) {
-    console.error("[reports] insert", insErr);
+    console.error("[reports] insert", {
+      message: insErr?.message,
+      code: insErr?.code,
+      details: insErr?.details,
+      hint: insErr?.hint,
+    });
+    const hint =
+      insErr?.code === "42P01" || /relation|does not exist/i.test(String(insErr?.message ?? ""))
+        ? " Run supabase/migrations/20260410120000_reports.sql in your Supabase project."
+        : "";
     return {
       ok: false,
-      error: insErr?.message ?? "Could not save report",
+      error: (insErr?.message ?? "Could not save report") + hint,
     };
   }
 
