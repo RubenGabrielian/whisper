@@ -1,6 +1,7 @@
 /**
- * Light-themed inline HTML for Whisper feedback reports.
- * Optional browser icons: set EMAIL_ICON_BASE_URL to a folder of PNGs (see public/email-icons/README.txt).
+ * Premium "Bug DNA" HTML email template for Whybug feedback reports.
+ * Dark-themed with amber accents — designed to be screenshot-worthy.
+ * Optional browser icons: set EMAIL_ICON_BASE_URL to a folder of PNGs.
  */
 
 export type FeedbackEvent = {
@@ -35,10 +36,37 @@ export type FeedbackNetworkEntry = {
   timestamp: number;
 };
 
-const LOG_COLORS: Record<LogLevel, { bg: string; text: string; border: string }> = {
-  error: { bg: "#fef2f2", text: "#b91c1c", border: "#fecaca" },
-  warn: { bg: "#fffbeb", text: "#b45309", border: "#fde68a" },
-  log: { bg: "#f8fafc", text: "#64748b", border: "#e2e8f0" },
+/* ── Colors ── */
+const AMBER = "#fbbf24";
+const AMBER_DIM = "#b45309";
+const DARK_BG = "#18181b";    // zinc-900
+const DARKER_BG = "#09090b";  // zinc-950
+const CARD_BG = "#1c1c20";
+const CARD_BORDER = "#27272a"; // zinc-800
+const MUTED = "#71717a";      // zinc-500
+const DIM = "#52525b";        // zinc-600
+const TEXT_PRIMARY = "#fafafa"; // zinc-50
+const TEXT_SECONDARY = "#a1a1aa"; // zinc-400
+const GREEN = "#34d399";
+const RED = "#f87171";
+const RED_BG = "#451a1a";
+
+const TYPE_DOT: Record<FeedbackEvent["type"], string> = {
+  click: AMBER,
+  input: "#a78bfa",
+  navigation: GREEN,
+};
+
+const TYPE_LABEL: Record<FeedbackEvent["type"], string> = {
+  click: "CLICK",
+  input: "INPUT",
+  navigation: "NAV",
+};
+
+const LOG_STYLES: Record<LogLevel, { text: string; bg: string; border: string; prefix: string }> = {
+  error: { text: "#f87171", bg: "#2a1515", border: "#7f1d1d", prefix: ">" },
+  warn:  { text: "#fbbf24", bg: "#2a2210", border: "#78350f", prefix: "!" },
+  log:   { text: "#a1a1aa", bg: DARKER_BG, border: "#3f3f46", prefix: "$" },
 };
 
 function escapeHtml(s: string): string {
@@ -50,26 +78,39 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#039;");
 }
 
-function formatWhen(ts: number, receiptAt: number): string {
-  const s = Math.floor((receiptAt - ts) / 1000);
-  if (s <= 0) return "just now";
-  if (s === 1) return "1s before send";
-  if (s < 60) return `${s}s before send`;
-  const m = Math.floor(s / 60);
-  return m === 1 ? "1m before send" : `${m}m before send`;
+function relTime(ts: number, refTs: number): string {
+  const s = Math.floor((refTs - ts) / 1000);
+  if (s <= 0) return "now";
+  return `-${s}s`;
 }
 
-const typeLabel: Record<FeedbackEvent["type"], string> = {
-  click: "CLICK",
-  input: "INPUT",
-  navigation: "NAV",
-};
+function netStatusColor(s: number): string {
+  if (s >= 500) return RED;
+  if (s >= 400) return AMBER;
+  return GREEN;
+}
 
-const typeColor: Record<FeedbackEvent["type"], string> = {
-  click: "#0891b2",
-  input: "#7c3aed",
-  navigation: "#059669",
-};
+function netStatusBg(s: number): string {
+  if (s >= 500) return RED_BG;
+  if (s >= 400) return "#2a2210";
+  return "#0d2818";
+}
+
+function methodColor(m: string): string {
+  if (m === "GET") return "#60a5fa";
+  if (m === "POST") return GREEN;
+  if (m === "DELETE") return RED;
+  return AMBER;
+}
+
+function netPath(u: string): string {
+  try {
+    const url = new URL(u);
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return u;
+  }
+}
 
 /** Map detected browser name → PNG filename in EMAIL_ICON_BASE_URL */
 export function browserIconFilename(browser: string): string {
@@ -82,19 +123,15 @@ export function browserIconFilename(browser: string): string {
   return "unknown.png";
 }
 
-function netStatusColor(s: number): string {
-  if (s >= 500) return "#b91c1c";
-  if (s >= 400) return "#b45309";
-  return "#047857";
-}
-
 function browserIconImg(iconBaseUrl: string, browser: string): string {
   const base = iconBaseUrl.replace(/\/$/, "");
   const file = browserIconFilename(browser);
-  const src = `${base}/${file}`;
-  return `<img src="${escapeHtml(src)}" width="22" height="22" alt="" style="display:inline-block;vertical-align:middle;margin-right:10px;border-radius:4px;" />`;
+  return `<img src="${escapeHtml(base)}/${file}" width="16" height="16" alt="" style="display:inline-block;vertical-align:middle;margin-right:6px;" />`;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   BUILD EMAIL HTML
+═══════════════════════════════════════════════════════════ */
 export function buildFeedbackReportHtml(params: {
   message: string;
   context: FeedbackContext;
@@ -102,166 +139,221 @@ export function buildFeedbackReportHtml(params: {
   console: FeedbackConsoleEntry[];
   network: FeedbackNetworkEntry[];
   receiptAt: number;
-  /** Absolute base URL to a folder of PNGs, no trailing slash. Example: https://yoursite.com/email-icons */
   iconBaseUrl?: string | null;
 }): string {
   const { message, context, events, receiptAt, iconBaseUrl } = params;
   const sorted = [...events].sort((a, b) => b.timestamp - a.timestamp);
   const iconsOn = Boolean(iconBaseUrl?.trim());
 
-  const rows =
-    sorted.length === 0
-      ? `<tr><td colspan="3" style="padding:18px;color:#64748b;font-size:14px;font-style:italic;">No session events in the last 30s window.</td></tr>`
-      : sorted
-        .map((ev) => {
-          const border = typeColor[ev.type];
-          return `<tr>
-  <td style="padding:11px 0;border-bottom:1px solid #e2e8f0;vertical-align:top;width:40px;">
-    <span style="display:inline-block;width:8px;height:8px;border-radius:9999px;background:${border};margin-top:7px;"></span>
-  </td>
-  <td style="padding:11px 8px 11px 0;border-bottom:1px solid #e2e8f0;vertical-align:top;">
-    <span style="font-size:10px;font-weight:700;letter-spacing:0.1em;color:${border};">${typeLabel[ev.type]}</span>
-    <div style="margin-top:5px;font-size:14px;color:#0f172a;line-height:1.45;">${escapeHtml(ev.description)}</div>
-  </td>
-  <td style="padding:11px 0;border-bottom:1px solid #e2e8f0;vertical-align:top;text-align:right;white-space:nowrap;">
-    <span style="font-size:12px;font-family:ui-monospace,Menlo,monospace;color:#64748b;">${escapeHtml(formatWhen(ev.timestamp, receiptAt))}</span>
-  </td>
-</tr>`;
-        })
-        .join("");
-
   const browserLabel = `${context.browser} ${context.browserVersion}`.trim();
-  const browserValueTd = iconsOn
-    ? `<td style="padding:10px 12px;font-size:13px;color:#0f172a;border-bottom:1px solid #e2e8f0;vertical-align:middle;">
-         ${browserIconImg(iconBaseUrl!.trim(), context.browser)}
-         <span style="vertical-align:middle;">${escapeHtml(browserLabel || "—")}</span>
-       </td>`
-    : `<td style="padding:10px 12px;font-size:13px;color:#0f172a;border-bottom:1px solid #e2e8f0;">${escapeHtml(browserLabel || "—")}</td>`;
+  const envLine = `${browserLabel || "Browser"} on ${context.os || "Unknown"} &middot; ${escapeHtml(context.screenResolution || "?")}`;
 
-  const browserRow = `<tr>
-  <td style="padding:10px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;width:38%;border-bottom:1px solid #e2e8f0;vertical-align:middle;">Browser</td>
-  ${browserValueTd}
-</tr>`;
-
-  const otherRows = [
-    ["OS", context.os],
-    ["Screen", context.screenResolution],
-    ["Viewport", context.windowSize],
-    ["Language", context.language],
-    ["Time zone", context.timezone],
-  ]
-    .map(
-      ([k, v]) => `<tr>
-  <td style="padding:10px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;width:38%;border-bottom:1px solid #e2e8f0;">${escapeHtml(k)}</td>
-  <td style="padding:10px 12px;font-size:13px;color:#0f172a;border-bottom:1px solid #e2e8f0;">${escapeHtml(v || "—")}</td>
-</tr>`
-    )
-    .join("");
-
+  const errorCount = (params.console ?? []).filter(e => e.level === "error").length;
+  const failedReqs = (params.network ?? []).filter(r => !r.ok).length;
   const consoleSorted = [...(params.console ?? [])].sort((a, b) => b.timestamp - a.timestamp);
-  const consoleRows =
-    consoleSorted.length === 0
-      ? `<tr><td style="padding:16px 14px;color:#64748b;font-size:13px;font-style:italic;">No console logs captured.</td></tr>`
-      : consoleSorted.map((entry, i) => {
-        const c = LOG_COLORS[entry.level];
-        const borderTop = i > 0 ? "border-top:1px solid #e2e8f0;" : "";
-        return `<tr>
-  <td style="padding:10px 14px;${borderTop}">
-    <span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:0.06em;padding:3px 8px;border-radius:6px;border:1px solid ${c.border};background:${c.bg};color:${c.text};">${entry.level}</span>
-    <span style="font-size:13px;color:#334155;margin-left:10px;line-height:1.5;">${escapeHtml(entry.text)}</span>
+  const networkSorted = [...(params.network ?? [])].sort((a, b) => b.timestamp - a.timestamp);
+
+  /* ── Timeline rows ── */
+  const timelineRows = sorted.length === 0
+    ? `<tr><td style="padding:20px 16px;text-align:center;">
+        <div style="font-size:13px;font-weight:700;color:${GREEN};font-family:ui-monospace,Menlo,monospace;">&#10003; Clean Slate</div>
+        <div style="font-size:11px;color:${MUTED};margin-top:4px;">No user interactions in the last 30s</div>
+       </td></tr>`
+    : sorted.map((ev, i) => {
+      const dot = TYPE_DOT[ev.type];
+      const label = TYPE_LABEL[ev.type];
+      const time = relTime(ev.timestamp, receiptAt);
+      const borderTop = i > 0 ? `border-top:1px solid ${CARD_BORDER};` : "";
+      return `<tr>
+  <td style="padding:10px 12px;${borderTop}vertical-align:top;width:36px;">
+    <div style="width:10px;height:10px;border-radius:10px;background:${dot};margin-top:3px;"></div>
+  </td>
+  <td style="padding:10px 8px;${borderTop}vertical-align:top;">
+    <span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:0.12em;color:${dot};font-family:ui-monospace,Menlo,monospace;background:${dot}15;padding:2px 6px;border:1px solid ${dot}30;margin-bottom:4px;">${label}</span>
+    <div style="font-size:13px;color:${TEXT_SECONDARY};font-family:ui-monospace,Menlo,monospace;line-height:1.45;">${escapeHtml(ev.description)}</div>
+  </td>
+  <td style="padding:10px 12px;${borderTop}vertical-align:top;text-align:right;white-space:nowrap;width:50px;">
+    <span style="font-size:11px;font-weight:700;font-family:ui-monospace,Menlo,monospace;color:${DIM};">${time}</span>
   </td>
 </tr>`;
-      }).join("");
+    }).join("");
 
-  function netPath(u: string): string {
-    try {
-      const url = new URL(u);
-      return `${url.pathname}${url.search}${url.hash}`;
-    } catch {
-      return u;
-    }
-  }
+  /* ── Console rows ── */
+  const consoleRows = consoleSorted.length === 0
+    ? `<tr><td style="padding:16px;text-align:center;">
+        <div style="font-size:12px;font-weight:700;color:${GREEN};font-family:ui-monospace,Menlo,monospace;">&#10003; No errors detected</div>
+       </td></tr>`
+    : consoleSorted.map((entry, i) => {
+      const s = LOG_STYLES[entry.level];
+      const borderTop = i > 0 ? `border-top:1px solid ${CARD_BORDER};` : "";
+      return `<tr>
+  <td style="padding:8px 12px;${borderTop}background:${s.bg};font-family:ui-monospace,Menlo,monospace;font-size:12px;">
+    <span style="color:${DIM};margin-right:6px;">${s.prefix}</span>
+    <span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:0.08em;padding:2px 6px;border:1px solid ${s.border};color:${s.text};margin-right:8px;vertical-align:middle;">${entry.level.toUpperCase()}</span>
+    <span style="color:${s.text};line-height:1.5;">${escapeHtml(entry.text)}</span>
+  </td>
+</tr>`;
+    }).join("");
 
-  const networkSorted = [...(params.network ?? [])].sort((a, b) => b.timestamp - a.timestamp);
-  const networkRows =
-    networkSorted.length === 0
-      ? `<tr><td style="padding:16px 14px;color:#64748b;font-size:13px;font-style:italic;">No network requests captured.</td></tr>`
-      : networkSorted.map((req, i) => {
-        const borderTop = i > 0 ? "border-top:1px solid #e2e8f0;" : "";
-        const status = req.status ?? 0;
-        const hl = !req.ok ? "background:#fef2f2;" : "";
-        const methodColor =
-          req.method === "GET" ? "#0369a1" : req.method === "POST" ? "#047857" : "#b45309";
-        const errBlock =
-          !req.ok && req.error
-            ? `<div style="padding:6px 0 2px 52px;font-size:12px;color:#b91c1c;">
-             ${escapeHtml(req.error)} <span style="color:#64748b;">— request failed</span>
-           </div>`
-            : "";
-        return `<tr><td style="padding:12px 14px;${borderTop}${hl}">
-  <table width="100%" cellspacing="0" cellpadding="0"><tr>
-    <td style="font-size:12px;font-weight:700;font-family:ui-monospace,Menlo,monospace;color:${methodColor};width:52px;">${escapeHtml(req.method)}</td>
-    <td style="font-size:13px;color:#475569;padding:0 8px;">${escapeHtml(netPath(req.url))}</td>
-    <td style="font-size:13px;font-weight:700;color:${netStatusColor(status)};text-align:right;width:44px;">${escapeHtml(String(req.status ?? '—'))}</td>
-    <td style="font-size:12px;color:#94a3b8;text-align:right;width:72px;white-space:nowrap;">${escapeHtml(req.durationMs == null ? '—' : String(Math.round(req.durationMs)))}ms</td>
-  </tr></table>
-  ${errBlock}
-</td></tr>`;
-      }).join("");
+  /* ── Network rows ── */
+  const networkRows = networkSorted.length === 0
+    ? `<tr><td style="padding:16px;text-align:center;">
+        <div style="font-size:12px;font-weight:700;color:${GREEN};font-family:ui-monospace,Menlo,monospace;">&#10003; All requests healthy</div>
+       </td></tr>`
+    : networkSorted.map((req, i) => {
+      const status = req.status ?? 0;
+      const borderTop = i > 0 ? `border-top:1px solid ${CARD_BORDER};` : "";
+      const rowBg = !req.ok ? RED_BG : "transparent";
+      const leftBorder = !req.ok ? `border-left:3px solid ${RED};` : `border-left:3px solid transparent;`;
+      const errBlock = !req.ok && req.error
+        ? `<div style="padding:4px 0 0 54px;font-size:11px;color:${RED};">&#9888; ${escapeHtml(req.error)} <span style="color:${MUTED};">&mdash; likely root cause</span></div>`
+        : "";
+      return `<tr>
+  <td style="padding:10px 12px;${borderTop}${leftBorder}background:${rowBg};font-family:ui-monospace,Menlo,monospace;font-size:12px;">
+    <table width="100%" cellspacing="0" cellpadding="0"><tr>
+      <td style="font-weight:700;color:${methodColor(req.method)};width:46px;font-size:11px;">${escapeHtml(req.method)}</td>
+      <td style="color:${TEXT_SECONDARY};padding:0 6px;">${escapeHtml(netPath(req.url))}</td>
+      <td style="text-align:right;width:40px;">
+        <span style="font-weight:700;font-size:11px;color:${netStatusColor(status)};background:${netStatusBg(status)};padding:2px 6px;border:1px solid ${netStatusColor(status)}30;">${escapeHtml(String(req.status ?? '—'))}</span>
+      </td>
+      <td style="color:${DIM};text-align:right;width:60px;white-space:nowrap;font-size:11px;">${escapeHtml(req.durationMs == null ? '—' : String(Math.round(req.durationMs)))}ms</td>
+    </tr></table>
+    ${errBlock}
+  </td>
+</tr>`;
+    }).join("");
 
+  /* ── Environment grid ── */
+  const envItems = [
+    { k: "Browser", v: browserLabel, icon: iconsOn ? browserIconImg(iconBaseUrl!.trim(), context.browser) : "" },
+    { k: "OS", v: context.os },
+    { k: "Screen", v: context.screenResolution },
+    { k: "Viewport", v: context.windowSize },
+    { k: "Language", v: context.language },
+    { k: "Timezone", v: context.timezone },
+  ];
+
+  const envRows = envItems.map((item, i) => {
+    const isEven = i % 2 === 0;
+    const next = i + 1 < envItems.length ? envItems[i + 1] : null;
+    if (!isEven) return ""; // handled by previous iteration
+    return `<tr>
+  <td width="50%" style="padding:8px 10px;border:1px solid ${CARD_BORDER};background:${CARD_BG};">
+    <div style="font-size:9px;font-weight:600;letter-spacing:0.12em;color:${DIM};text-transform:uppercase;">${escapeHtml(item.k)}</div>
+    <div style="font-size:12px;color:${TEXT_SECONDARY};font-family:ui-monospace,Menlo,monospace;margin-top:2px;">${item.icon || ""}${escapeHtml(item.v || "—")}</div>
+  </td>
+  ${next ? `<td width="50%" style="padding:8px 10px;border:1px solid ${CARD_BORDER};background:${CARD_BG};">
+    <div style="font-size:9px;font-weight:600;letter-spacing:0.12em;color:${DIM};text-transform:uppercase;">${escapeHtml(next.k)}</div>
+    <div style="font-size:12px;color:${TEXT_SECONDARY};font-family:ui-monospace,Menlo,monospace;margin-top:2px;">${escapeHtml(next.v || "—")}</div>
+  </td>` : `<td width="50%" style="padding:8px 10px;border:1px solid ${CARD_BORDER};background:${CARD_BG};">&nbsp;</td>`}
+</tr>`;
+  }).filter(Boolean).join("");
+
+  /* ── Summary stats ── */
+  const statItems = [
+    { label: "Events", value: String(sorted.length), color: AMBER },
+    { label: "Console", value: errorCount > 0 ? `${errorCount} error${errorCount !== 1 ? "s" : ""}` : "Clean", color: errorCount > 0 ? RED : GREEN },
+    { label: "Network", value: failedReqs > 0 ? `${failedReqs} failed` : "Healthy", color: failedReqs > 0 ? RED : GREEN },
+  ];
+
+  const statCells = statItems.map(s =>
+    `<td width="33%" style="padding:10px 8px;text-align:center;border:1px solid ${CARD_BORDER};background:${CARD_BG};">
+      <div style="font-size:16px;font-weight:800;color:${s.color};font-family:ui-monospace,Menlo,monospace;">${s.value}</div>
+      <div style="font-size:9px;font-weight:600;letter-spacing:0.14em;color:${DIM};text-transform:uppercase;margin-top:2px;">${s.label}</div>
+    </td>`
+  ).join("");
+
+  const dateStr = new Date(receiptAt).toLocaleString("en-US", {
+    weekday: "short", year: "numeric", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit", timeZoneName: "short",
+  });
+
+  /* ── Section header helper ── */
+  const sectionHeader = (title: string, badge?: string, badgeColor?: string) => `
+    <tr>
+      <td style="padding:14px 16px 8px 16px;background:${CARD_BORDER};">
+        <table width="100%" cellspacing="0" cellpadding="0"><tr>
+          <td style="font-size:10px;font-weight:700;letter-spacing:0.14em;color:${MUTED};text-transform:uppercase;font-family:ui-monospace,Menlo,monospace;">&#9889; ${title}</td>
+          ${badge ? `<td style="text-align:right;font-size:10px;font-weight:700;color:${badgeColor || MUTED};font-family:ui-monospace,Menlo,monospace;">${badge}</td>` : ""}
+        </tr></table>
+      </td>
+    </tr>`;
+
+  /* ═══════════════════════════════════════════════════════
+     FINAL HTML
+  ═══════════════════════════════════════════════════════ */
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
-  <title>Whisper feedback</title>
+  <title>Whybug &middot; Bug DNA Report</title>
 </head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:28px 14px;">
+<body style="margin:0;padding:0;background:${DARKER_BG};font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${DARKER_BG};padding:24px 12px;">
     <tr>
       <td align="center">
         <table role="presentation" width="100%" style="max-width:600px;border-collapse:collapse;">
 
+          <!-- ═══ BUG DNA HEADER ═══ -->
           <tr>
-            <td style="padding:0 0 20px 0;">
-              <table width="100%" style="background:#ffffff;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;">
+            <td style="padding:0 0 16px 0;">
+              <table width="100%" style="background:${DARK_BG};border:2px solid ${CARD_BORDER};overflow:hidden;">
+                <!-- Top glow line -->
+                <tr><td style="height:3px;background:linear-gradient(90deg,transparent 10%,${AMBER} 50%,transparent 90%);font-size:0;">&nbsp;</td></tr>
                 <tr>
-                  <td style="padding:24px 26px 20px 26px;border-bottom:3px solid #06b6d4;">
-                    <div style="font-size:11px;font-weight:700;letter-spacing:0.18em;color:#0891b2;text-transform:uppercase;margin-bottom:8px;">Whisper · Feedback</div>
-                    <h1 style="margin:0;font-size:21px;font-weight:700;color:#0f172a;line-height:1.25;letter-spacing:-0.02em;">New report from your site</h1>
-                    <p style="margin:10px 0 0 0;font-size:13px;color:#64748b;line-height:1.55;">What they wrote, recent session activity, environment, console sample, and network sample — so you can see the problem at a glance.</p>
+                  <td style="padding:22px 20px 8px 20px;">
+                    <table width="100%" cellspacing="0" cellpadding="0"><tr>
+                      <td style="vertical-align:middle;">
+                        <table cellspacing="0" cellpadding="0"><tr>
+                          <td style="width:28px;height:28px;background:${GREEN};border:2px solid ${GREEN};text-align:center;vertical-align:middle;font-size:14px;font-weight:900;color:${DARKER_BG};">&#10003;</td>
+                          <td style="padding-left:10px;">
+                            <div style="font-size:18px;font-weight:900;color:${TEXT_PRIMARY};letter-spacing:-0.02em;">Bug DNA</div>
+                            <div style="font-size:11px;color:${MUTED};font-family:ui-monospace,Menlo,monospace;">Report decoded &middot; ${escapeHtml(dateStr)}</div>
+                          </td>
+                        </tr></table>
+                      </td>
+                      <td style="text-align:right;vertical-align:top;">
+                        <table cellspacing="0" cellpadding="0"><tr>
+                          <td style="width:24px;height:24px;background:${AMBER};text-align:center;vertical-align:middle;font-size:12px;font-weight:900;color:${DARKER_BG};">&#9889;</td>
+                          <td style="padding-left:6px;font-size:12px;font-weight:800;color:${TEXT_PRIMARY};">Whybug</td>
+                        </tr></table>
+                      </td>
+                    </tr></table>
                   </td>
                 </tr>
-              </table>
-            </td>
-          </tr>
 
-          <tr>
-            <td style="padding:0 0 14px 0;">
-              <table width="100%" style="background:#ffffff;border-radius:14px;border:1px solid #e2e8f0;border-left:4px solid #06b6d4;">
+                <!-- User message bubble -->
                 <tr>
-                  <td style="padding:20px 22px;">
-                    <div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;margin-bottom:10px;">What they reported</div>
-                    <p style="margin:0;font-size:16px;color:#0f172a;line-height:1.55;font-style:italic;">&ldquo;${escapeHtml(message)}&rdquo;</p>
+                  <td style="padding:12px 20px 16px 20px;">
+                    <table width="100%" style="border:2px solid ${AMBER}40;background:${AMBER}08;">
+                      <tr><td style="padding:14px 16px;">
+                        <div style="font-size:10px;color:${AMBER_DIM};font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;">&#128172; USER REPORT</div>
+                        <p style="margin:0;font-size:15px;color:${TEXT_PRIMARY};line-height:1.55;font-family:ui-monospace,Menlo,monospace;">&ldquo;${escapeHtml(message)}&rdquo;</p>
+                      </td></tr>
+                    </table>
                   </td>
                 </tr>
-              </table>
-            </td>
-          </tr>
 
-          <tr>
-            <td style="padding:0 0 14px 0;">
-              <table width="100%" style="background:#ffffff;border-radius:14px;border:1px solid #e2e8f0;">
+                <!-- Environment badge -->
                 <tr>
-                  <td style="padding:18px 20px 6px 20px;">
-                    <div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;">Session timeline</div>
-                    <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Last ~30 seconds (clicks, inputs after typing pauses, navigation)</div>
+                  <td style="padding:0 20px 16px 20px;">
+                    <table cellspacing="0" cellpadding="0"><tr>
+                      <td style="padding:4px 10px;background:${CARD_BG};border:1px solid ${CARD_BORDER};font-size:11px;color:${TEXT_SECONDARY};font-family:ui-monospace,Menlo,monospace;">
+                        &#128421; ${envLine}
+                      </td>
+                      <td style="padding:4px 10px;background:${CARD_BG};border:1px solid ${CARD_BORDER};font-size:11px;color:${AMBER};font-family:ui-monospace,Menlo,monospace;margin-left:4px;">
+                        &#127760; ${escapeHtml(context.url)}
+                      </td>
+                    </tr></table>
                   </td>
                 </tr>
+
+                <!-- Quick stats -->
                 <tr>
-                  <td style="padding:0 18px 18px 18px;">
+                  <td style="padding:0 20px 18px 20px;">
                     <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-                      ${rows}
+                      <tr>${statCells}</tr>
                     </table>
                   </td>
                 </tr>
@@ -269,43 +361,29 @@ export function buildFeedbackReportHtml(params: {
             </td>
           </tr>
 
+          <!-- ═══ PATH TO BUG ═══ -->
           <tr>
-            <td style="padding:0 0 14px 0;">
-              <table width="100%" style="background:#ffffff;border-radius:14px;border:1px solid #e2e8f0;">
+            <td style="padding:0 0 12px 0;">
+              <table width="100%" style="background:${DARK_BG};border:2px solid ${CARD_BORDER};overflow:hidden;">
+                ${sectionHeader("Path to Bug", sorted.length > 0 ? `${sorted.length} events &middot; 30s` : "no events", AMBER)}
                 <tr>
-                  <td style="padding:18px 20px 10px 20px;">
-                    <div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;">Environment</div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:0 18px 6px 18px;">
+                  <td style="padding:0;">
                     <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-                      ${browserRow}
-                      ${otherRows}
+                      ${timelineRows}
                     </table>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:0 18px 18px 18px;">
-                    <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Page URL</div>
-                    <a href="${escapeHtml(context.url)}" style="font-size:13px;color:#0891b2;word-break:break-all;text-decoration:underline;">${escapeHtml(context.url)}</a>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
 
+          <!-- ═══ CONSOLE ═══ -->
           <tr>
-            <td style="padding:0 0 14px 0;">
-              <table width="100%" style="background:#ffffff;border-radius:14px;border:1px solid #e2e8f0;">
+            <td style="padding:0 0 12px 0;">
+              <table width="100%" style="background:${DARKER_BG};border:2px solid ${CARD_BORDER};overflow:hidden;">
+                ${sectionHeader("Console", errorCount > 0 ? `${errorCount} error${errorCount !== 1 ? "s" : ""} &middot; ${consoleSorted.length} total` : `${consoleSorted.length} lines`, errorCount > 0 ? RED : MUTED)}
                 <tr>
-                  <td style="padding:18px 20px 6px 20px;">
-                    <div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;">Console</div>
-                    <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Latest lines captured with the report</div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:0 4px 14px 4px;">
+                  <td style="padding:0;">
                     <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                       ${consoleRows}
                     </table>
@@ -315,17 +393,24 @@ export function buildFeedbackReportHtml(params: {
             </td>
           </tr>
 
+          <!-- ═══ NETWORK ═══ -->
           <tr>
-            <td style="padding:0 0 14px 0;">
-              <table width="100%" style="background:#ffffff;border-radius:14px;border:1px solid #e2e8f0;">
+            <td style="padding:0 0 12px 0;">
+              <table width="100%" style="background:${DARKER_BG};border:2px solid ${CARD_BORDER};overflow:hidden;">
+                ${sectionHeader("Network", failedReqs > 0 ? `${failedReqs} failed &middot; ${networkSorted.length} req` : `${networkSorted.length} requests`, failedReqs > 0 ? RED : MUTED)}
+                <!-- Column headers -->
                 <tr>
-                  <td style="padding:18px 20px 6px 20px;">
-                    <div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#64748b;text-transform:uppercase;">Network</div>
-                    <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Requests captured with status codes and timings</div>
+                  <td style="padding:6px 12px;border-bottom:1px solid ${CARD_BORDER};background:${CARD_BG};">
+                    <table width="100%" cellspacing="0" cellpadding="0"><tr>
+                      <td style="font-size:9px;font-weight:600;letter-spacing:0.12em;color:${DIM};text-transform:uppercase;font-family:ui-monospace,Menlo,monospace;width:46px;">Method</td>
+                      <td style="font-size:9px;font-weight:600;letter-spacing:0.12em;color:${DIM};text-transform:uppercase;font-family:ui-monospace,Menlo,monospace;">Path</td>
+                      <td style="font-size:9px;font-weight:600;letter-spacing:0.12em;color:${DIM};text-transform:uppercase;font-family:ui-monospace,Menlo,monospace;text-align:right;width:40px;">Status</td>
+                      <td style="font-size:9px;font-weight:600;letter-spacing:0.12em;color:${DIM};text-transform:uppercase;font-family:ui-monospace,Menlo,monospace;text-align:right;width:60px;">Time</td>
+                    </tr></table>
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:0 4px 14px 4px;">
+                  <td style="padding:0;">
                     <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                       ${networkRows}
                     </table>
@@ -335,9 +420,45 @@ export function buildFeedbackReportHtml(params: {
             </td>
           </tr>
 
+          <!-- ═══ DEVICE SNAPSHOT ═══ -->
           <tr>
-            <td style="padding:12px 0 0 0;text-align:center;">
-              <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.5;">Whisper · ${escapeHtml(new Date(receiptAt).toISOString())}</p>
+            <td style="padding:0 0 12px 0;">
+              <table width="100%" style="background:${DARK_BG};border:2px solid ${CARD_BORDER};overflow:hidden;">
+                ${sectionHeader("Device Snapshot")}
+                <tr>
+                  <td style="padding:4px 12px 12px 12px;">
+                    <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                      ${envRows}
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 12px 14px 12px;">
+                    <table width="100%" style="border:1px solid ${CARD_BORDER};background:${CARD_BG};">
+                      <tr><td style="padding:8px 10px;">
+                        <div style="font-size:9px;font-weight:600;letter-spacing:0.12em;color:${DIM};text-transform:uppercase;">Page URL</div>
+                        <a href="${escapeHtml(context.url)}" style="font-size:12px;color:${AMBER};font-family:ui-monospace,Menlo,monospace;word-break:break-all;text-decoration:none;">${escapeHtml(context.url)}</a>
+                      </td></tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ═══ FOOTER ═══ -->
+          <tr>
+            <td style="padding:8px 0 0 0;text-align:center;">
+              <table width="100%" style="background:${DARK_BG};border:2px solid ${CARD_BORDER};">
+                <tr><td style="padding:16px 20px;text-align:center;">
+                  <div style="font-size:10px;color:${MUTED};font-family:ui-monospace,Menlo,monospace;">
+                    &#9889; Context captured automatically by <strong style="color:${TEXT_SECONDARY};">Whybug.info</strong>
+                  </div>
+                  <div style="font-size:10px;color:${DIM};font-family:ui-monospace,Menlo,monospace;margin-top:6px;">
+                    ${escapeHtml(new Date(receiptAt).toISOString())}
+                  </div>
+                </td></tr>
+              </table>
             </td>
           </tr>
 
@@ -352,7 +473,7 @@ export function buildFeedbackReportHtml(params: {
 export function feedbackEmailSubject(message: string): string {
   const clean = message.replace(/\s+/g, " ").trim();
   const preview = clean.length > 55 ? `${clean.slice(0, 55)}…` : clean;
-  return `[Whisper] ${preview || "New feedback"}`;
+  return `[Whybug] ${preview || "New feedback"}`;
 }
 
 /** Subject line when feedback comes from an embedded widget (includes project name). */
@@ -360,6 +481,6 @@ export function widgetFeedbackEmailSubject(projectName: string, message: string)
   const clean = message.replace(/\s+/g, " ").trim();
   const preview = clean.length > 55 ? `${clean.slice(0, 55)}…` : clean;
   const pn = projectName.replace(/\s+/g, " ").trim().slice(0, 80);
-  if (pn) return `[Whisper · ${pn}] ${preview || "New feedback"}`;
+  if (pn) return `[Whybug · ${pn}] ${preview || "New feedback"}`;
   return feedbackEmailSubject(message);
 }

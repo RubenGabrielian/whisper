@@ -87,12 +87,12 @@ export async function POST(request: Request) {
   const from =
     process.env.RESEND_FROM_OTP ??
     process.env.RESEND_FROM ??
-    "Whisper <onboarding@resend.dev>";
+    "Whybug <onboarding@resend.dev>";
 
   const { error: sendError } = await resend.emails.send({
     from,
     to: email,
-    subject: "Your Whisper sign-in code",
+    subject: "Your Whybug sign-in code",
     html: buildOtpSignInEmailHtml({ code }),
   });
 

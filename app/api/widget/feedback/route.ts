@@ -146,7 +146,7 @@ export async function POST(req: Request) {
   }
 
   const from =
-    process.env.RESEND_FROM?.trim() || "Whisper <onboarding@resend.dev>";
+    process.env.RESEND_FROM?.trim() || "Whybug <onboarding@resend.dev>";
   const iconBaseUrl = process.env.EMAIL_ICON_BASE_URL?.trim() || null;
   const replyTo = process.env.FEEDBACK_REPLY_TO?.trim();
 

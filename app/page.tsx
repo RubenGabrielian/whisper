@@ -96,6 +96,21 @@ const NAV_LINKS = [
 
 function Navbar() {
   const scrolled = useScrolled();
+  const [authUser, setAuthUser] = useState<{ email: string; name?: string | null } | null>(null);
+  const [authLoaded, setAuthLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then(r => r.json())
+      .then(data => {
+        setAuthUser(data.user ?? null);
+        setAuthLoaded(true);
+      })
+      .catch(() => setAuthLoaded(true));
+  }, []);
+
+  const displayName = authUser?.name || authUser?.email?.split("@")[0] || "";
+  const initials = displayName.slice(0, 2).toUpperCase();
 
   return (
     <motion.header
@@ -137,18 +152,46 @@ function Navbar() {
 
         {/* Actions */}
         <div className="flex items-center gap-3">
-          <a href="/sign-in" className="hidden md:block text-[0.78rem] font-mono font-semibold text-zinc-600 hover:text-zinc-950 transition-colors">
-            Sign in
-          </a>
-          <motion.a href="#pricing"
-            whileTap={{ x: 2, y: 2 }}
-            className="text-[0.78rem] font-black px-4 py-2
-                       bg-amber-400 text-zinc-950 border-2 border-zinc-950
-                       shadow-[4px_4px_0px_0px_#000]
-                       hover:shadow-[3px_3px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px]
-                       transition-[transform,box-shadow] duration-75">
-            Get Started Free
-          </motion.a>
+          {authLoaded && authUser ? (
+            <>
+              {/* Logged-in user */}
+              <div className="hidden md:flex items-center gap-2.5">
+                <span className="w-7 h-7 flex items-center justify-center border-2 border-zinc-950
+                                 bg-zinc-950 text-white text-[0.6rem] font-black
+                                 shadow-[2px_2px_0px_0px_#000]">
+                  {initials}
+                </span>
+                <span className="text-[0.78rem] font-mono font-semibold text-zinc-700 max-w-[140px] truncate">
+                  {authUser.name || authUser.email}
+                </span>
+              </div>
+              <motion.a href="/dashboard"
+                whileTap={{ x: 2, y: 2 }}
+                className="text-[0.78rem] font-black px-4 py-2
+                           bg-amber-400 text-zinc-950 border-2 border-zinc-950
+                           shadow-[4px_4px_0px_0px_#000]
+                           hover:shadow-[3px_3px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px]
+                           transition-[transform,box-shadow] duration-75">
+                Go to Dashboard
+              </motion.a>
+            </>
+          ) : (
+            <>
+              {/* Not logged in or still loading */}
+              <a href="/sign-in" className={`hidden md:block text-[0.78rem] font-mono font-semibold text-zinc-600 hover:text-zinc-950 transition-colors ${!authLoaded ? "opacity-0" : ""}`}>
+                Sign in
+              </a>
+              <motion.a href="#pricing"
+                whileTap={{ x: 2, y: 2 }}
+                className={`text-[0.78rem] font-black px-4 py-2
+                           bg-amber-400 text-zinc-950 border-2 border-zinc-950
+                           shadow-[4px_4px_0px_0px_#000]
+                           hover:shadow-[3px_3px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px]
+                           transition-[transform,box-shadow] duration-75 ${!authLoaded ? "opacity-0" : ""}`}>
+                Get Started Free
+              </motion.a>
+            </>
+          )}
         </div>
       </div>
     </motion.header>
